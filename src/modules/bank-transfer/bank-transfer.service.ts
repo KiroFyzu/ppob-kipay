@@ -63,6 +63,7 @@ export function toPublicBankTransfer(bt: {
   completedAt: Date | null;
 }) {
   return {
+    kind: 'BANK_TRANSFER' as const,
     id: bt.id,
     refId: bt.refId,
     bankCode: bt.bankCode,

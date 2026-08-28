@@ -51,6 +51,7 @@ export function toPublicTransaction(tx: {
   completedAt: Date | null;
 }) {
   return {
+    kind: 'EWALLET' as const,
     id: tx.id,
     refId: tx.refId,
     brand: tx.brand,
