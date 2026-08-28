@@ -1,0 +1,25 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <h1>Riwayat Transaksi</h1>
+  <p>Semua top up yang pernah kamu lakukan.</p>
+</section>
+
+<nav class="filter-bar" aria-label="Saring status">
+  <a href="/transaksi" class="filter-chip <%= !activeStatus ? 'active' : '' %>">Semua</a>
+  <% statuses.forEach(function (s) { %>
+    <a href="/transaksi?status=<%= s %>"
+       class="filter-chip <%= activeStatus === s ? 'active' : '' %>"><%= statusLabel(s) %></a>
+  <% }) %>
+</nav>
+
+<% if (transactions.length === 0) { %>
+  <div class="card empty-state">
+    <p>Tidak ada transaksi dengan filter ini.</p>
+    <a href="/" class="btn btn-primary btn-sm">Mulai top up</a>
+  </div>
+<% } else { %>
+  <%- include('../partials/transaction-table', { transactions: transactions }) %>
+<% } %>
+
+<%- include('../partials/footer') %>

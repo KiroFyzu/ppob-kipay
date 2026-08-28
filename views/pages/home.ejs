@@ -1,0 +1,76 @@
+<%- include('../partials/head') %>
+
+<section class="hero">
+  <h1>Top up e-wallet dalam hitungan detik</h1>
+  <p>Isi saldo DANA, OVO, GoPay, dan ShopeePay langsung ke nomor tujuan.</p>
+</section>
+
+<% if (error) { %>
+  <div class="alert alert-error" role="alert">
+    <strong>Gagal.</strong> <%= error %>
+  </div>
+<% } %>
+
+<form method="post" action="/topup" class="card topup-form" id="form-topup">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <!-- Brand dipilih lewat tautan biasa agar halaman tetap berfungsi tanpa
+       JavaScript. Skrip di app.js hanya membuat perpindahannya tanpa muat ulang. -->
+  <fieldset class="field">
+    <legend class="field-label">1. Pilih layanan</legend>
+    <div class="brand-grid">
+      <% brands.forEach(function (b) { %>
+        <a href="/?brand=<%= b.brand %>"
+           class="brand-card <%= brandClass(b.brand) %> <%= selectedBrand === b.brand ? 'selected' : '' %>"
+           data-brand="<%= b.brand %>"
+           aria-current="<%= selectedBrand === b.brand ? 'true' : 'false' %>">
+          <span class="brand-name"><%= b.label %></span>
+          <span class="brand-meta"><%= b.productCount %> nominal</span>
+        </a>
+      <% }) %>
+    </div>
+    <input type="hidden" name="brand" value="<%= selectedBrand %>" id="input-brand">
+  </fieldset>
+
+  <fieldset class="field">
+    <legend class="field-label">2. Pilih nominal</legend>
+    <% if (products.length === 0) { %>
+      <p class="empty">Belum ada produk untuk layanan ini.</p>
+    <% } else { %>
+      <div class="nominal-scroll">
+        <div class="nominal-grid">
+          <% products.forEach(function (p) { %>
+            <label class="nominal-card">
+              <input type="radio" name="nominal" value="<%= p.nominal %>"
+                <%= (typeof values !== 'undefined' && String(values.nominal) === String(p.nominal)) ? 'checked' : '' %>>
+              <span class="nominal-inner">
+                <span class="nominal-value"><%= rupiah(p.nominal) %></span>
+                <span class="nominal-price"><%= rupiah(p.price) %></span>
+              </span>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+      <p class="hint">Harga di bawah nominal adalah total yang dipotong dari saldomu.</p>
+    <% } %>
+  </fieldset>
+
+  <fieldset class="field">
+    <legend class="field-label">3. Nomor tujuan</legend>
+    <input type="tel" name="targetNumber" class="input" required
+           placeholder="08xxxxxxxxxx" inputmode="numeric" autocomplete="tel"
+           value="<%= typeof values !== 'undefined' ? values.targetNumber : '' %>">
+    <p class="hint warn">
+      Pastikan nomor sudah benar. Saldo yang sudah terkirim tidak bisa ditarik kembali.
+    </p>
+  </fieldset>
+
+  <% if (user) { %>
+    <button type="submit" class="btn btn-primary btn-block">Lanjutkan pembayaran</button>
+  <% } else { %>
+    <a href="/masuk?next=%2F" class="btn btn-primary btn-block">Masuk untuk melanjutkan</a>
+    <p class="hint center">Belum punya akun? <a href="/daftar">Daftar gratis</a>.</p>
+  <% } %>
+</form>
+
+<%- include('../partials/footer') %>

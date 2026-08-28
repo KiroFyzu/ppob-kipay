@@ -1,0 +1,93 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <a href="/saldo" class="back-link">&larr; Kembali ke saldo</a>
+  <h1>Tagihan Deposit</h1>
+</section>
+
+<div class="card receipt">
+  <div class="receipt-status <%= statusClass(deposit.status) %>-bg">
+    <span class="<%= statusClass(deposit.status) %>"><%= statusLabel(deposit.status) %></span>
+    <% if (deposit.status === 'PENDING') { %>
+      <p class="receipt-note">
+        Menunggu pembayaran. Halaman ini menyegarkan otomatis setiap 5 detik.
+      </p>
+    <% } else if (deposit.status === 'PAID') { %>
+      <p class="receipt-note">Pembayaran diterima, saldo sudah ditambahkan.</p>
+    <% } %>
+  </div>
+
+  <% if (deposit.status === 'PENDING' && deposit.method === 'QRIS' && deposit.qrPayload) { %>
+    <div class="pay-qris">
+      <img
+        class="pay-qr-image"
+        src="/saldo/deposit/<%= deposit.invoiceId %>/qr.png"
+        width="280"
+        height="280"
+        alt="QR pembayaran QRIS"
+      >
+      <p class="hint">
+        Scan pakai aplikasi e-wallet apa pun yang mendukung QRIS (GoPay,
+        ShopeePay, dan lainnya). Bayar tepat <strong><%= rupiah(deposit.totalPaid) %></strong>
+        -- QR sudah menyertakan kode uniknya.
+      </p>
+    </div>
+  <% } else if (deposit.status === 'PENDING') { %>
+    <div class="pay-amount">
+      <span class="stat-label">Transfer tepat sejumlah</span>
+      <span class="balance-big"><%= rupiah(deposit.totalPaid) %></span>
+      <p class="hint warn">
+        Nominalnya harus sama persis sampai tiga angka terakhir. Angka unik itu
+        yang dipakai untuk mencocokkan pembayaranmu.
+      </p>
+    </div>
+  <% } %>
+
+  <dl class="receipt-list">
+    <div class="receipt-row">
+      <dt>Nomor invoice</dt>
+      <dd class="mono"><%= deposit.invoiceId %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Saldo yang ditambahkan</dt>
+      <dd><%= rupiah(deposit.amount) %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Kode unik</dt>
+      <dd><%= rupiah(deposit.fee) %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Metode</dt>
+      <dd><%= deposit.method === 'MANUAL_TRANSFER' ? 'Transfer Manual' : deposit.method %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Dibuat</dt>
+      <dd><%= tanggal(deposit.createdAt) %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Berlaku sampai</dt>
+      <dd><%= tanggal(deposit.expiredAt) %></dd>
+    </div>
+    <% if (deposit.paidAt) { %>
+      <div class="receipt-row">
+        <dt>Dibayar</dt>
+        <dd><%= tanggal(deposit.paidAt) %></dd>
+      </div>
+    <% } %>
+    <div class="receipt-row total">
+      <dt>Total transfer</dt>
+      <dd><%= rupiah(deposit.totalPaid) %></dd>
+    </div>
+  </dl>
+</div>
+
+<% if (deposit.status === 'PENDING') { %>
+  <div class="detail-actions">
+    <form method="post" action="/saldo/deposit/<%= deposit.invoiceId %>/batal">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="btn btn-ghost">Batalkan tagihan</button>
+    </form>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

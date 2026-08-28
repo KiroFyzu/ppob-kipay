@@ -1,0 +1,107 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <h1>Saldo</h1>
+  <p>Isi saldo dulu, lalu pakai untuk semua transaksi top up.</p>
+</section>
+
+<div class="balance-layout">
+  <div>
+    <div class="card balance-hero">
+      <span class="stat-label">Saldo tersedia</span>
+      <span class="balance-big"><%= rupiah(user.balance) %></span>
+    </div>
+
+    <form method="post" action="/saldo/deposit" class="card">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <h2>Isi saldo</h2>
+
+      <% if (error) { %>
+        <div class="alert alert-error" role="alert"><%= error %></div>
+      <% } %>
+
+      <fieldset class="field">
+        <legend class="field-label">Nominal</legend>
+        <div class="quick-amounts">
+          <% [50000, 100000, 200000, 500000, 1000000].forEach(function (a) { %>
+            <button type="button" class="chip-btn" data-amount="<%= a %>"><%= rupiah(a) %></button>
+          <% }) %>
+        </div>
+        <input type="number" name="amount" class="input" required min="10000"
+               step="1000" placeholder="Masukkan nominal" id="input-amount">
+      </fieldset>
+
+      <fieldset class="field">
+        <legend class="field-label">Metode</legend>
+        <select name="method" class="input">
+          <% methods.forEach(function (m) { %>
+            <option value="<%= m %>"><%= m === 'MANUAL_TRANSFER' ? 'Transfer Manual' : m %></option>
+          <% }) %>
+        </select>
+        <span class="hint">
+          Transfer manual diberi kode unik agar pembayaranmu bisa dicocokkan.
+        </span>
+      </fieldset>
+
+      <button type="submit" class="btn btn-primary btn-block">Buat tagihan</button>
+    </form>
+  </div>
+
+  <div>
+    <section class="section">
+      <h2>Tagihan deposit</h2>
+      <% if (deposits.length === 0) { %>
+        <div class="card empty-state"><p>Belum ada tagihan deposit.</p></div>
+      <% } else { %>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Invoice</th><th class="num">Nominal</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              <% deposits.forEach(function (d) { %>
+                <tr>
+                  <td class="mono small"><%= d.invoiceId %></td>
+                  <td class="num"><%= rupiah(d.amount) %></td>
+                  <td><span class="<%= statusClass(d.status) %>"><%= statusLabel(d.status) %></span></td>
+                  <td class="num">
+                    <a class="link-more" href="/saldo/deposit/<%= d.invoiceId %>">Detail</a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+
+    <section class="section">
+      <h2>Mutasi saldo</h2>
+      <% if (history.length === 0) { %>
+        <div class="card empty-state"><p>Belum ada mutasi.</p></div>
+      <% } else { %>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Waktu</th><th>Keterangan</th><th class="num">Jumlah</th><th class="num">Saldo</th></tr>
+            </thead>
+            <tbody>
+              <% history.forEach(function (h) { %>
+                <tr>
+                  <td class="nowrap small"><%= tanggal(h.createdAt) %></td>
+                  <td class="small"><%= h.description %></td>
+                  <td class="num <%= h.amount > 0 ? 'amount-in' : 'amount-out' %>">
+                    <%= h.amount > 0 ? '+' : '' %><%= rupiah(h.amount) %>
+                  </td>
+                  <td class="num small"><%= rupiah(h.balanceAfter) %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

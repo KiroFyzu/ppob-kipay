@@ -1,0 +1,226 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <h1>Dokumentasi API</h1>
+  <p>Referensi lengkap REST API untuk integrasi server-to-server.</p>
+</section>
+
+<nav class="card docs-toc" aria-label="Daftar isi">
+  <a href="#autentikasi">Autentikasi</a>
+  <a href="#konvensi">Konvensi respons</a>
+  <a href="#publik">Endpoint publik</a>
+  <a href="#akun">Akun &amp; API key</a>
+  <a href="#produk">Produk &amp; top up</a>
+  <a href="#transfer-bank">Transfer bank</a>
+  <a href="#saldo">Saldo &amp; deposit</a>
+  <a href="#admin">Admin</a>
+  <a href="#webhook">Webhook</a>
+  <a href="#contoh">Contoh alur lengkap</a>
+</nav>
+
+<section class="section doc-section" id="autentikasi">
+  <h2>Autentikasi</h2>
+  <p>
+    Setiap endpoint yang butuh login menerima salah satu dari dua cara berikut:
+  </p>
+  <ul>
+    <li><code>Authorization: Bearer &lt;jwt&gt;</code> &mdash; token dari <code>POST /api/v1/auth/login</code> atau <code>/register</code>, berlaku sesuai <code>JWT_EXPIRES_IN</code> (bawaan 1 hari).</li>
+    <li><code>X-API-Key: sk_...</code> &mdash; cocok untuk integrasi server-to-server yang berjalan lama, tidak kedaluwarsa sampai dicabut.</li>
+  </ul>
+
+  <h3>API key dibuat otomatis saat daftar</h3>
+  <p>
+    Setiap akun langsung punya satu API key aktif (label <code>Default</code>)
+    begitu <code>POST /api/v1/auth/register</code> berhasil. Nilai mentahnya
+    ikut dikembalikan sekali di field <code>data.apiKey.key</code> pada respons
+    registrasi &mdash; simpan saat itu juga, karena setelahnya cuma prefix-nya
+    (10 karakter pertama) yang tersimpan dan bisa dilihat lagi.
+  </p>
+  <p>
+    Kalau nilainya hilang atau kamu curiga key-nya bocor, regenerate lewat
+    <code>POST /api/v1/auth/api-keys/:id/regenerate</code> (atau tombol
+    <strong>Regenerate</strong> di halaman <a href="/akun">Akun</a> kalau login
+    lewat web) &mdash; key lama langsung dicabut dan key baru dengan label yang
+    sama dibuat sebagai gantinya. ID key ikut berubah.
+  </p>
+</section>
+
+<section class="section doc-section" id="konvensi">
+  <h2>Konvensi respons</h2>
+  <p>Semua endpoint <code>/api/*</code> selalu membalas JSON dengan bentuk:</p>
+  <pre class="code-block"><code>{ "success": true, "data": &lt;hasil&gt; }</code></pre>
+  <p>atau saat gagal:</p>
+  <pre class="code-block"><code>{
+  "success": false,
+  "error": { "code": "KODE_ERROR", "message": "Penjelasan", "details": &lt;opsional&gt; }
+}</code></pre>
+  <p>
+    <code>error.code</code> adalah bagian dari kontrak API &mdash; nilainya stabil
+    dan aman dijadikan logika percabangan di client (mis. <code>INSUFFICIENT_BALANCE</code>,
+    <code>PRODUCT_INACTIVE</code>, <code>TARGET_COOLDOWN</code>).
+  </p>
+  <p>
+    Header <code>Idempotency-Key</code> (opsional, tapi sangat disarankan) bisa
+    disertakan di <code>POST /transactions</code> dan <code>POST /bank-transfers</code>.
+    Percobaan ulang dengan key yang sama mengembalikan transaksi yang sama,
+    bukan membuat transaksi baru &mdash; aman dipakai saat retry karena koneksi
+    putus atau timeout.
+  </p>
+</section>
+
+<section class="section doc-section" id="publik">
+  <h2>Endpoint publik</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td class="mono">/health</td><td>Status server dan database</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/products/brands</td><td>Daftar brand e-wallet beserta rentang nominal</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/products?brand=DANA</td><td>Katalog produk dan harga jual</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/auth/register</td><td>Daftar akun (langsung dapat JWT + API key default)</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/auth/login</td><td>Login, mengembalikan JWT</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section doc-section" id="akun">
+  <h2>Akun &amp; API key <span class="doc-auth-tag">butuh autentikasi</span></h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td class="mono">/api/v1/auth/me</td><td>Profil singkat</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/auth/api-keys</td><td>Buat API key tambahan (raw value ditampilkan sekali)</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/auth/api-keys</td><td>Daftar API key (tanpa raw value)</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/auth/api-keys/:id/regenerate</td><td>Cabut key lama, buat key baru dengan label sama</td></tr>
+        <tr><td>DELETE</td><td class="mono">/api/v1/auth/api-keys/:id</td><td>Cabut API key</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section doc-section" id="produk">
+  <h2>Produk &amp; top up e-wallet <span class="doc-auth-tag">butuh autentikasi</span></h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr><td>POST</td><td class="mono">/api/v1/transactions</td><td>Buat transaksi top up (<code>brand</code>+<code>nominal</code> atau <code>kodeProduk</code>, plus <code>targetNumber</code>)</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/transactions</td><td>Riwayat transaksi top up</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/transactions/:refId</td><td>Detail satu transaksi</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section doc-section" id="transfer-bank">
+  <h2>Transfer bank <span class="doc-auth-tag">butuh autentikasi</span></h2>
+  <p>Kirim saldo langsung ke rekening bank lewat TokoVoucher. Tidak ada katalog produk di baliknya &mdash; kode bank dan nominal bebas per permintaan.</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr><td>POST</td><td class="mono">/api/v1/bank-transfers</td><td><code>bankCode</code>, <code>targetNumber</code>, <code>nominal</code></td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/bank-transfers</td><td>Riwayat transfer bank</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/bank-transfers/:refId</td><td>Detail satu transfer bank</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section doc-section" id="saldo">
+  <h2>Saldo &amp; deposit <span class="doc-auth-tag">butuh autentikasi</span></h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td class="mono">/api/v1/balance</td><td>Saldo saat ini</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/balance/history</td><td>Riwayat mutasi saldo (ledger)</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/balance/deposits</td><td>Buat tagihan deposit (<code>method</code>: <code>MANUAL_TRANSFER</code> atau <code>QRIS</code>)</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/balance/deposits</td><td>Daftar deposit</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/balance/deposits/:invoiceId/qr.png</td><td>Gambar QR (deposit QRIS)</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/balance/deposits/:invoiceId/cancel</td><td>Batalkan deposit</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section doc-section" id="admin">
+  <h2>Admin <span class="doc-auth-tag">role ADMIN</span></h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td class="mono">/api/v1/admin/supplier/balance</td><td>Saldo kita di TokoVoucher</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/admin/products/sync</td><td>Tarik katalog dari API supplier</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/admin/deposits/:invoiceId/confirm</td><td>Konfirmasi pembayaran manual</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/admin/balance/adjust</td><td>Penyesuaian saldo (wajib beralasan)</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/admin/balance/audit/:userId</td><td>Bandingkan saldo dengan ledger</td></tr>
+        <tr><td>GET/POST/DELETE</td><td class="mono">/api/v1/admin/blocked-targets</td><td>Kelola nomor/rekening yang diblokir</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/admin/transactions/flagged</td><td>Transaksi yang butuh tinjauan manual</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section doc-section" id="webhook">
+  <h2>Webhook</h2>
+  <p>Endpoint ini menerima callback dari supplier/payment gateway, bukan dipanggil oleh client.</p>
+  <ul>
+    <li>
+      <code class="mono">POST /api/v1/webhooks/tokovoucher</code> &mdash; callback
+      status transaksi top up maupun transfer bank (dibedakan lewat <code>ref_id</code>).
+      Wajib menyertakan header <code>X-TokoVoucher-Authorization</code> berisi
+      <code>md5(member_code:signature_key:ref_id)</code>.
+    </li>
+    <li>
+      <code class="mono">POST /api/v1/webhooks/kipay</code> &mdash; callback status
+      deposit QRIS. Wajib menyertakan header <code>X-Webhook-Signature</code>
+      berisi <code>sha256=</code> + HMAC-SHA256(raw body, webhook secret project KiPay).
+    </li>
+  </ul>
+</section>
+
+<section class="section doc-section" id="contoh">
+  <h2>Contoh alur lengkap</h2>
+
+  <h3>1. Daftar dan simpan API key</h3>
+  <pre class="code-block"><code>curl -X POST https://domainmu/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "kamu@contoh.com", "password": "passwordkuat", "name": "Nama Kamu" }'</code></pre>
+  <p>Ambil <code>data.apiKey.key</code> dari respons dan simpan sebagai <code>X-API-Key</code> untuk semua panggilan berikutnya.</p>
+
+  <h3>2. Top up e-wallet</h3>
+  <pre class="code-block"><code>curl -X POST https://domainmu/api/v1/transactions \
+  -H "X-API-Key: sk_..." \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: order-12345" \
+  -d '{ "brand": "DANA", "nominal": 25000, "targetNumber": "081234567890" }'</code></pre>
+
+  <h3>3. Transfer ke rekening bank</h3>
+  <pre class="code-block"><code>curl -X POST https://domainmu/api/v1/bank-transfers \
+  -H "X-API-Key: sk_..." \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: transfer-12345" \
+  -d '{ "bankCode": "bca", "targetNumber": "1234567890", "nominal": 100000 }'</code></pre>
+
+  <h3>4. Isi saldo lewat QRIS</h3>
+  <pre class="code-block"><code>curl -X POST https://domainmu/api/v1/balance/deposits \
+  -H "X-API-Key: sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "amount": 50000, "method": "QRIS" }'</code></pre>
+  <p>
+    Respons berisi <code>qrPayload</code> (payload EMV QRIS mentah) dan
+    <code>totalPaid</code> (nominal + kode unik yang harus dibayar persis).
+    Gambar QR siap pakai ada di
+    <code>GET /api/v1/balance/deposits/:invoiceId/qr.png</code>.
+  </p>
+
+  <h3>5. Regenerate API key</h3>
+  <pre class="code-block"><code>curl -X POST https://domainmu/api/v1/auth/api-keys/&lt;id&gt;/regenerate \
+  -H "X-API-Key: sk_..."</code></pre>
+  <p><code>&lt;id&gt;</code> didapat dari <code>GET /api/v1/auth/api-keys</code>. Key lama langsung tidak berlaku begitu ini dipanggil.</p>
+</section>
+
+<%- include('../partials/footer') %>

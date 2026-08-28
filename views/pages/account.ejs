@@ -1,0 +1,88 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <h1>Akun & API Key</h1>
+  <p>Kelola API key untuk integrasi server-to-server. Lihat <a href="/docs">dokumentasi API</a> untuk cara memakainya.</p>
+</section>
+
+<% if (error) { %>
+  <div class="alert alert-error" role="alert"><%= error %></div>
+<% } %>
+
+<% if (newKey) { %>
+  <div class="card api-key-reveal">
+    <h2>API key baru dibuat</h2>
+    <p class="hint warn"><%= newKey.warning %></p>
+    <code class="api-key-value"><%= newKey.key %></code>
+    <p class="hint">
+      Simpan sekarang -- nilai ini tidak akan ditampilkan lagi setelah kamu
+      meninggalkan atau memuat ulang halaman ini.
+    </p>
+  </div>
+<% } %>
+
+<section class="section">
+  <h2>Buat API key baru</h2>
+  <form method="post" action="/akun/api-keys" class="card">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <fieldset class="field">
+      <legend class="field-label">Label</legend>
+      <input type="text" name="label" class="input" required maxlength="60"
+             placeholder="Contoh: Server produksi">
+    </fieldset>
+    <button type="submit" class="btn btn-primary">Buat API key</button>
+  </form>
+</section>
+
+<section class="section">
+  <h2>API key kamu</h2>
+  <% if (apiKeys.length === 0) { %>
+    <div class="card empty-state"><p>Belum ada API key.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th class="mono">Prefix</th>
+            <th>Dibuat</th>
+            <th>Terakhir dipakai</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% apiKeys.forEach(function (k) { %>
+            <tr>
+              <td><%= k.label %></td>
+              <td class="mono small"><%= k.keyPrefix %>&hellip;</td>
+              <td class="nowrap small"><%= tanggal(k.createdAt) %></td>
+              <td class="nowrap small"><%= k.lastUsedAt ? tanggal(k.lastUsedAt) : 'Belum pernah' %></td>
+              <td>
+                <% if (k.revokedAt) { %>
+                  <span class="badge badge-failed">Dicabut</span>
+                <% } else { %>
+                  <span class="badge badge-success">Aktif</span>
+                <% } %>
+              </td>
+              <td class="num">
+                <% if (!k.revokedAt) { %>
+                  <form method="post" action="/akun/api-keys/<%= k.id %>/regenerate" class="inline-form">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn btn-ghost btn-sm">Regenerate</button>
+                  </form>
+                  <form method="post" action="/akun/api-keys/<%= k.id %>/cabut" class="inline-form">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn btn-ghost btn-sm">Cabut</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include('../partials/footer') %>

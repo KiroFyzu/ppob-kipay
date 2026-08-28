@@ -1,0 +1,31 @@
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Waktu</th>
+        <th>Layanan</th>
+        <th>Tujuan</th>
+        <th class="num">Harga</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% transactions.forEach(function (t) { %>
+        <tr>
+          <td class="nowrap"><%= tanggal(t.createdAt) %></td>
+          <td>
+            <span class="brand-pill <%= brandClass(t.brand) %>"><%= t.brandLabel %></span>
+            <span class="nominal-inline"><%= rupiah(t.nominal) %></span>
+          </td>
+          <td class="mono"><%= t.targetNumber %></td>
+          <td class="num"><%= rupiah(t.price) %></td>
+          <td><span class="<%= statusClass(t.status) %>"><%= statusLabel(t.status) %></span></td>
+          <td class="num">
+            <a class="link-more" href="/transaksi/<%= t.refId %>">Detail</a>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>

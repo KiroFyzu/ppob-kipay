@@ -1,0 +1,33 @@
+<%- include('../partials/head') %>
+
+<div class="auth-wrap">
+  <form method="post" action="/masuk" class="card auth-card">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="next" value="<%= next %>">
+
+    <h1>Masuk</h1>
+    <p class="auth-sub">Masuk untuk melanjutkan transaksi.</p>
+
+    <% if (error) { %>
+      <div class="alert alert-error" role="alert"><%= error %></div>
+    <% } %>
+
+    <label class="field">
+      <span class="field-label">Email</span>
+      <input type="email" name="email" class="input" required autocomplete="email"
+             value="<%= email %>" autofocus>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Password</span>
+      <input type="password" name="password" class="input" required
+             autocomplete="current-password">
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-block">Masuk</button>
+
+    <p class="hint center">Belum punya akun? <a href="/daftar">Daftar di sini</a>.</p>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

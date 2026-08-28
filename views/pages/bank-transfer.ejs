@@ -1,0 +1,117 @@
+<%- include('../partials/head') %>
+
+<section class="hero">
+  <h1>Transfer saldo ke rekening bank</h1>
+  <p>Kirim saldo langsung ke rekening bank tujuan, nominal bebas sesuai kebutuhan.</p>
+</section>
+
+<% if (error) { %>
+  <div class="alert alert-error" role="alert">
+    <strong>Gagal.</strong> <%= error %>
+  </div>
+<% } %>
+
+<div class="balance-layout">
+  <div>
+    <form method="post" action="/transfer-bank" class="card topup-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <fieldset class="field">
+        <legend class="field-label">1. Bank tujuan</legend>
+        <input
+          type="text"
+          name="bankCode"
+          class="input"
+          list="bank-codes"
+          required
+          autocomplete="off"
+          placeholder="Contoh: bca, mandiri, bni"
+          value="<%= values ? values.bankCode : '' %>"
+        >
+        <datalist id="bank-codes">
+          <% banks.forEach(function (b) { %>
+            <option value="<%= b.code %>"><%= b.label %></option>
+          <% }) %>
+        </datalist>
+        <p class="hint">
+          Ketik kode banknya (bukan nama lengkap). Daftar di atas cuma contoh
+          bank yang umum dipakai -- bank lain yang didukung TokoVoucher tetap
+          bisa dipakai walau tidak muncul di saran.
+        </p>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend class="field-label">2. Nomor rekening</legend>
+        <input
+          type="text"
+          name="targetNumber"
+          class="input"
+          required
+          inputmode="numeric"
+          placeholder="Nomor rekening tujuan"
+          value="<%= values ? values.targetNumber : '' %>"
+        >
+      </fieldset>
+
+      <fieldset class="field">
+        <legend class="field-label">3. Nominal</legend>
+        <input
+          type="number"
+          name="nominal"
+          class="input"
+          required
+          min="<%= minAmount %>"
+          max="<%= maxAmount %>"
+          step="1000"
+          placeholder="Masukkan nominal"
+          value="<%= values ? values.nominal : '' %>"
+        >
+        <p class="hint">
+          Minimum <%= rupiah(minAmount) %>, maksimum <%= rupiah(maxAmount) %> per transfer.
+        </p>
+      </fieldset>
+
+      <% if (user) { %>
+        <button type="submit" class="btn btn-primary btn-block">Kirim transfer</button>
+      <% } else { %>
+        <a href="/masuk?next=%2Ftransfer-bank" class="btn btn-primary btn-block">Masuk untuk melanjutkan</a>
+        <p class="hint center">Belum punya akun? <a href="/daftar">Daftar gratis</a>.</p>
+      <% } %>
+    </form>
+  </div>
+
+  <div>
+    <section class="section">
+      <h2>Riwayat transfer bank</h2>
+      <% if (!user) { %>
+        <div class="card empty-state"><p>Masuk untuk melihat riwayat transfer bankmu.</p></div>
+      <% } else if (bankTransfers.length === 0) { %>
+        <div class="card empty-state"><p>Belum ada transfer bank.</p></div>
+      <% } else { %>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Waktu</th><th>Bank</th><th>Rekening</th><th class="num">Nominal</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              <% bankTransfers.forEach(function (b) { %>
+                <tr>
+                  <td class="nowrap small"><%= tanggal(b.createdAt) %></td>
+                  <td><%= b.bankLabel %></td>
+                  <td class="mono small"><%= b.targetNumber %></td>
+                  <td class="num"><%= rupiah(b.nominal) %></td>
+                  <td><span class="<%= statusClass(b.status) %>"><%= statusLabel(b.status) %></span></td>
+                  <td class="num">
+                    <a class="link-more" href="/transfer-bank/<%= b.refId %>">Detail</a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

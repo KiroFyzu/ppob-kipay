@@ -1,0 +1,73 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <a href="/transaksi" class="back-link">&larr; Kembali ke riwayat</a>
+  <h1>Detail Transaksi</h1>
+</section>
+
+<div class="card receipt">
+  <div class="receipt-status <%= statusClass(tx.status) %>-bg">
+    <span class="<%= statusClass(tx.status) %>"><%= statusLabel(tx.status) %></span>
+    <% if (autoRefresh) { %>
+      <p class="receipt-note">
+        Transaksi sedang diproses. Halaman ini menyegarkan otomatis setiap 5 detik.
+      </p>
+    <% } else if (tx.status === 'SUCCESS') { %>
+      <p class="receipt-note">Saldo sudah terkirim ke nomor tujuan.</p>
+    <% } else if (tx.status === 'REFUNDED') { %>
+      <p class="receipt-note">Transaksi gagal dan saldomu sudah dikembalikan penuh.</p>
+    <% } %>
+  </div>
+
+  <dl class="receipt-list">
+    <div class="receipt-row">
+      <dt>Kode transaksi</dt>
+      <dd class="mono"><%= tx.refId %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Layanan</dt>
+      <dd><span class="brand-pill <%= brandClass(tx.brand) %>"><%= tx.brandLabel %></span></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Nominal</dt>
+      <dd><%= rupiah(tx.nominal) %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Nomor tujuan</dt>
+      <dd class="mono"><%= tx.targetNumber %></dd>
+    </div>
+    <div class="receipt-row">
+      <dt>Dibuat</dt>
+      <dd><%= tanggal(tx.createdAt) %></dd>
+    </div>
+    <% if (tx.completedAt) { %>
+      <div class="receipt-row">
+        <dt>Selesai</dt>
+        <dd><%= tanggal(tx.completedAt) %></dd>
+      </div>
+    <% } %>
+    <% if (tx.serialNumber) { %>
+      <div class="receipt-row">
+        <dt>Nomor seri</dt>
+        <dd class="mono"><%= tx.serialNumber %></dd>
+      </div>
+    <% } %>
+    <% if (tx.message) { %>
+      <div class="receipt-row">
+        <dt>Keterangan</dt>
+        <dd><%= tx.message %></dd>
+      </div>
+    <% } %>
+    <div class="receipt-row total">
+      <dt>Total dibayar</dt>
+      <dd><%= rupiah(tx.price) %></dd>
+    </div>
+  </dl>
+</div>
+
+<div class="detail-actions">
+  <a href="/" class="btn btn-primary">Top up lagi</a>
+  <a href="/saldo" class="btn btn-ghost">Lihat saldo</a>
+</div>
+
+<%- include('../partials/footer') %>

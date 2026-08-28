@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> &middot; TopUp E-Wallet</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9889;</text></svg>">
+  <% if (typeof autoRefresh !== 'undefined' && autoRefresh) { %>
+    <meta http-equiv="refresh" content="5">
+  <% } %>
+</head>
+<body>
+<a class="skip-link" href="#konten">Lompat ke konten</a>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="logo" href="/">
+      <span class="logo-mark" aria-hidden="true">&#9889;</span>
+      <span>TopUp<strong>E-Wallet</strong></span>
+    </a>
+
+    <nav class="nav" aria-label="Navigasi utama">
+      <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>">Top Up</a>
+      <a href="/transfer-bank" class="<%= currentPath.startsWith('/transfer-bank') ? 'active' : '' %>">Transfer Bank</a>
+      <a href="/docs" class="<%= currentPath.startsWith('/docs') ? 'active' : '' %>">API Docs</a>
+      <% if (user) { %>
+        <a href="/dasbor" class="<%= currentPath === '/dasbor' ? 'active' : '' %>">Dasbor</a>
+        <a href="/transaksi" class="<%= currentPath.startsWith('/transaksi') ? 'active' : '' %>">Riwayat</a>
+        <a href="/saldo" class="<%= currentPath.startsWith('/saldo') ? 'active' : '' %>">Saldo</a>
+        <a href="/akun" class="<%= currentPath.startsWith('/akun') ? 'active' : '' %>">Akun</a>
+        <% if (user.role === 'ADMIN') { %>
+          <a href="/admin" class="<%= currentPath.startsWith('/admin') ? 'active' : '' %>">Admin</a>
+        <% } %>
+      <% } %>
+    </nav>
+
+    <div class="header-account">
+      <% if (user) { %>
+        <a class="balance-chip" href="/saldo" title="Saldo tersedia">
+          <span class="balance-label">Saldo</span>
+          <span class="balance-value"><%= rupiah(user.balance) %></span>
+        </a>
+        <form method="post" action="/keluar" class="inline-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn btn-ghost btn-sm">Keluar</button>
+        </form>
+      <% } else { %>
+        <a class="btn btn-ghost btn-sm" href="/masuk">Masuk</a>
+        <a class="btn btn-primary btn-sm" href="/daftar">Daftar</a>
+      <% } %>
+    </div>
+  </div>
+</header>
+
+<main id="konten" class="container">

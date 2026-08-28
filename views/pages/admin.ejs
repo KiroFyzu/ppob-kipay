@@ -1,0 +1,154 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <h1>Panel Admin</h1>
+  <p>Konfirmasi pembayaran, pantau transaksi bermasalah, kelola blokir nomor.</p>
+</section>
+
+<div class="stat-grid">
+  <div class="card stat">
+    <span class="stat-label">Saldo supplier</span>
+    <% if (supplierBalance !== null) { %>
+      <span class="stat-value"><%= rupiah(supplierBalance) %></span>
+      <span class="stat-action muted">Habisnya saldo ini menghentikan semua transaksi</span>
+    <% } else { %>
+      <span class="stat-value failed">&mdash;</span>
+      <span class="stat-action muted"><%= supplierError %></span>
+    <% } %>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Produk aktif</span>
+    <span class="stat-value"><%= productCount %></span>
+    <span class="stat-action muted">Di katalog</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Pengguna</span>
+    <span class="stat-value"><%= userCount %></span>
+    <span class="stat-action muted">Terdaftar</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Perlu ditinjau</span>
+    <span class="stat-value <%= flagged.length > 0 ? 'failed' : '' %>"><%= flagged.length %></span>
+    <span class="stat-action muted">Transaksi macet</span>
+  </div>
+</div>
+
+<section class="section">
+  <h2>Deposit menunggu konfirmasi</h2>
+  <p class="hint">
+    Cocokkan nominal transfer dengan mutasi rekening sebelum mengonfirmasi.
+    Konfirmasi menambah saldo pengguna secara langsung.
+  </p>
+
+  <% if (pendingDeposits.length === 0) { %>
+    <div class="card empty-state"><p>Tidak ada deposit yang menunggu.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Invoice</th><th>Pengguna</th>
+            <th class="num">Transfer</th><th>Dibuat</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% pendingDeposits.forEach(function (d) { %>
+            <tr>
+              <td class="mono small"><%= d.invoiceId %></td>
+              <td class="small"><%= d.user.name %><br><span class="muted"><%= d.user.email %></span></td>
+              <td class="num strong"><%= rupiah(d.totalPaid) %></td>
+              <td class="small nowrap"><%= tanggal(d.createdAt) %></td>
+              <td class="num">
+                <form method="post" action="/admin/deposit/<%= d.invoiceId %>/konfirmasi" class="inline-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-primary btn-sm">Konfirmasi</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="section">
+  <h2>Transaksi perlu ditinjau</h2>
+  <p class="hint">
+    Sengaja tidak di-refund otomatis. Periksa dulu di dashboard supplier apakah
+    saldonya benar-benar terkirim, karena refund yang salah berarti pengguna
+    menerima dua-duanya.
+  </p>
+
+  <% if (flagged.length === 0) { %>
+    <div class="card empty-state"><p>Tidak ada transaksi bermasalah.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Kode</th><th>Layanan</th><th class="num">Nominal</th><th>Alasan</th><th>Dibuat</th></tr>
+        </thead>
+        <tbody>
+          <% flagged.forEach(function (t) { %>
+            <tr>
+              <td class="mono small"><%= t.refId %></td>
+              <td><span class="brand-pill <%= brandClass(t.brand) %>"><%= t.brand %></span></td>
+              <td class="num"><%= rupiah(t.nominal) %></td>
+              <td class="small"><%= t.flaggedReason %></td>
+              <td class="small nowrap"><%= tanggal(t.createdAt) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="section">
+  <h2>Nomor diblokir</h2>
+
+  <form method="post" action="/admin/blokir" class="card inline-block-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="form-row">
+      <label class="field grow">
+        <span class="field-label">Nomor</span>
+        <input type="tel" name="number" class="input" required placeholder="08xxxxxxxxxx">
+      </label>
+      <label class="field grow">
+        <span class="field-label">Alasan</span>
+        <input type="text" name="reason" class="input" required placeholder="Contoh: indikasi penyalahgunaan">
+      </label>
+      <button type="submit" class="btn btn-primary">Blokir</button>
+    </div>
+  </form>
+
+  <% if (blocked.length === 0) { %>
+    <div class="card empty-state"><p>Belum ada nomor yang diblokir.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Nomor</th><th>Alasan</th><th>Sejak</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% blocked.forEach(function (b) { %>
+            <tr>
+              <td class="mono"><%= b.number %></td>
+              <td class="small"><%= b.reason %></td>
+              <td class="small nowrap"><%= tanggal(b.createdAt) %></td>
+              <td class="num">
+                <form method="post" action="/admin/blokir/hapus" class="inline-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="number" value="<%= b.number %>">
+                  <button type="submit" class="btn btn-ghost btn-sm">Buka blokir</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include('../partials/footer') %>

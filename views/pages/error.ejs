@@ -1,0 +1,17 @@
+<%- include('../partials/head') %>
+
+<div class="error-wrap">
+  <div class="card error-card">
+    <span class="error-code"><%= statusCode %></span>
+    <h1><%= title %></h1>
+    <p><%= message %></p>
+    <div class="detail-actions">
+      <a href="/" class="btn btn-primary">Kembali ke beranda</a>
+      <% if (user) { %>
+        <a href="/dasbor" class="btn btn-ghost">Ke dasbor</a>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

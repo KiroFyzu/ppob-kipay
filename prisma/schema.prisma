@@ -1,0 +1,321 @@
+// PostgreSQL (Supabase) sebagai database utama.
+//
+// Catatan warisan dari SQLite:
+//  - Kolom status/role/brand tetap memakai String (bukan enum Postgres) supaya
+//    tidak perlu migrasi skema tambahan. Nilainya dibatasi lewat konstanta di
+//    src/domain/enums.ts, bukan oleh DB.
+//  - Payload JSON (paymentPayload, headers, dll) tetap disimpan sebagai String
+//    berisi JSON hasil serialisasi, konsisten dengan kode aplikasi yang ada.
+//  - DATABASE_URL wajib memakai connection string Postgres Supabase. Untuk
+//    migrasi (prisma migrate/db push), gunakan koneksi langsung (port 5432)
+//    lewat DIRECT_URL karena connection pooler (port 6543/pgbouncer) tidak
+//    mendukung prepared statement yang dipakai schema engine.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// User & auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  phone        String? @unique
+  name         String
+  passwordHash String
+  /// Role: USER | ADMIN
+  role         String  @default("USER")
+  isActive     Boolean @default(true)
+
+  /// Saldo dalam rupiah penuh (tanpa sen). Kolom ini cache; sumber kebenaran
+  /// tetap agregat LedgerEntry.
+  balance Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions  Transaction[]
+  deposits      Deposit[]
+  ledger        LedgerEntry[]
+  apiKeys       ApiKey[]
+  bankTransfers BankTransfer[]
+
+  @@map("users")
+}
+
+model ApiKey {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Hash dari API key. Key mentah hanya ditampilkan sekali saat dibuat.
+  keyHash    String    @unique
+  keyPrefix  String
+  label      String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+// ---------------------------------------------------------------------------
+// Katalog produk
+// ---------------------------------------------------------------------------
+
+model Product {
+  id String @id @default(uuid())
+
+  /// Kode produk milik TokoVoucher, contoh: DANA10, GOPAY25.
+  kodeProduk String @unique
+  /// jenis_id TokoVoucher: 123=DANA, 124=OVO, 125=GoPay, 128=ShopeePay.
+  jenisId    Int
+  /// Brand: DANA | OVO | GOPAY | SHOPEEPAY
+  brand      String
+  namaProduk String
+
+  /// Nilai nominal yang diterima user, contoh 10000.
+  nominal   Int
+  /// Harga modal dari supplier.
+  basePrice Int
+  /// Harga jual ke user, dihitung oleh pricing engine saat sinkronisasi.
+  sellPrice Int
+
+  isActive     Boolean  @default(true)
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@unique([brand, nominal])
+  @@index([brand, isActive])
+  @@map("products")
+}
+
+// ---------------------------------------------------------------------------
+// Transaksi topup
+// ---------------------------------------------------------------------------
+
+model Transaction {
+  id String @id @default(uuid())
+
+  /// Referensi unik kita, dikirim ke supplier sebagai ref_id.
+  refId  String @unique
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  // Snapshot data produk saat transaksi dibuat. Katalog boleh berubah,
+  // riwayat transaksi tidak boleh ikut berubah.
+  kodeProduk   String
+  brand        String
+  nominal      Int
+  targetNumber String
+  basePrice    Int
+  sellPrice    Int
+
+  /// Status: PENDING | PROCESSING | SUCCESS | FAILED | REFUNDED
+  status String @default("PENDING")
+
+  supplierTrxId   String?
+  supplierStatus  String?
+  supplierMessage String?
+  serialNumber    String?
+
+  /// Idempotency-Key dari client, unik per user.
+  idempotencyKey String?
+
+  attemptCount  Int       @default(0)
+  lastCheckedAt DateTime?
+  /// Kapan worker boleh cek status lagi. NULL = tidak perlu dicek.
+  nextCheckAt   DateTime?
+  completedAt   DateTime?
+  /// Diisi kalau transaksi macet terlalu lama dan butuh tinjauan manual.
+  flaggedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledger LedgerEntry[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, nextCheckAt])
+  @@index([userId, createdAt])
+  @@index([targetNumber, createdAt])
+  @@map("transactions")
+}
+
+// ---------------------------------------------------------------------------
+// Deposit saldo
+// ---------------------------------------------------------------------------
+
+model Deposit {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  /// Nomor invoice internal, dikirim ke payment gateway sebagai merchant ref.
+  invoiceId String @unique
+
+  /// Jumlah yang masuk ke saldo user.
+  amount    Int
+  /// Fee payment gateway yang dibebankan ke user.
+  fee       Int @default(0)
+  /// amount + fee, jumlah yang harus dibayar user.
+  totalPaid Int
+
+  method String
+  /// Status: PENDING | PAID | EXPIRED | FAILED
+  status String @default("PENDING")
+
+  paymentReference String?
+  /// JSON hasil serialisasi (SQLite tidak punya tipe Json).
+  paymentPayload   String?
+  /// Payload EMV QRIS mentah dari KiPay (method QRIS), dipakai untuk render QR.
+  qrPayload        String?
+
+  expiredAt DateTime
+  paidAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledger LedgerEntry[]
+
+  @@index([userId, createdAt])
+  @@index([status, expiredAt])
+  @@map("deposits")
+}
+
+// ---------------------------------------------------------------------------
+// Transfer Bank -- kirim saldo langsung ke rekening bank lewat TokoVoucher
+// (docs.tokovoucher.net/bank-transfer). Model terpisah dari Transaction
+// karena tidak ada katalog Product di baliknya: kode bank dan nominal
+// ditentukan bebas oleh user per permintaan, bukan dipilih dari SKU tetap.
+// ---------------------------------------------------------------------------
+
+model BankTransfer {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  /// Referensi unik kita, dikirim ke supplier sebagai ref_id.
+  refId String @unique
+
+  /// Kode bank TokoVoucher, contoh: bca, mandiri, bni, bri.
+  bankCode String
+  /// Nomor rekening tujuan.
+  targetNumber String
+
+  /// Jumlah yang diterima rekening tujuan.
+  nominal Int
+  /// Harga modal yang dipotong dari saldo TokoVoucher (= nominal).
+  basePrice Int
+  /// Harga yang dipotong dari saldo user (nominal + markup).
+  sellPrice Int
+
+  /// Status: PENDING | PROCESSING | SUCCESS | FAILED | REFUNDED
+  status String @default("PENDING")
+
+  supplierTrxId   String?
+  supplierStatus  String?
+  supplierMessage String?
+
+  /// Idempotency-Key dari client, unik per user.
+  idempotencyKey String?
+
+  attemptCount  Int       @default(0)
+  lastCheckedAt DateTime?
+  /// Kapan worker boleh cek status lagi. NULL = tidak perlu dicek.
+  nextCheckAt   DateTime?
+  completedAt   DateTime?
+  /// Diisi kalau transaksi macet terlalu lama dan butuh tinjauan manual.
+  flaggedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledger LedgerEntry[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, nextCheckAt])
+  @@index([userId, createdAt])
+  @@index([targetNumber, createdAt])
+  @@map("bank_transfers")
+}
+
+// ---------------------------------------------------------------------------
+// Ledger - satu baris per mutasi saldo, append-only.
+// ---------------------------------------------------------------------------
+
+model LedgerEntry {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  /// Tipe: DEPOSIT | PURCHASE | REFUND | ADJUSTMENT
+  type String
+  /// Bertanda: positif menambah saldo, negatif mengurangi.
+  amount        Int
+  balanceBefore Int
+  balanceAfter  Int
+
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  depositId     String?
+  deposit       Deposit?     @relation(fields: [depositId], references: [id])
+  bankTransferId String?
+  bankTransfer   BankTransfer? @relation(fields: [bankTransferId], references: [id])
+
+  description String
+  createdAt   DateTime @default(now())
+
+  /// Kunci anti double-posting, contoh: PURCHASE:<txId> atau REFUND:<txId>.
+  /// Unique constraint di sini yang mencegah saldo terpotong atau dikembalikan
+  /// dua kali kalau ada retry atau callback ganda.
+  postingKey String @unique
+
+  @@index([userId, createdAt])
+  @@map("ledger_entries")
+}
+
+// ---------------------------------------------------------------------------
+// Fraud & audit
+// ---------------------------------------------------------------------------
+
+model BlockedTarget {
+  id        String   @id @default(uuid())
+  number    String   @unique
+  reason    String
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@map("blocked_targets")
+}
+
+model WebhookLog {
+  id     String @id @default(uuid())
+  source String
+  /// Body mentah apa adanya, untuk audit dan replay.
+  payload String
+  headers String?
+  isValid Boolean
+  note    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([source, createdAt])
+  @@map("webhook_logs")
+}

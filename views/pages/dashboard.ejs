@@ -1,0 +1,47 @@
+<%- include('../partials/head') %>
+
+<section class="page-head">
+  <h1>Halo, <%= user.name %></h1>
+  <p>Ringkasan akun dan transaksi terakhirmu.</p>
+</section>
+
+<div class="stat-grid">
+  <div class="card stat">
+    <span class="stat-label">Saldo tersedia</span>
+    <span class="stat-value"><%= rupiah(user.balance) %></span>
+    <a class="stat-action" href="/saldo">Isi saldo &rarr;</a>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Total transaksi</span>
+    <span class="stat-value"><%= totalTransactions %></span>
+    <a class="stat-action" href="/transaksi">Lihat riwayat &rarr;</a>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Berhasil</span>
+    <span class="stat-value success"><%= summary.SUCCESS || 0 %></span>
+    <span class="stat-action muted">Sudah masuk ke tujuan</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Sedang diproses</span>
+    <span class="stat-value pending"><%= (summary.PENDING || 0) + (summary.PROCESSING || 0) %></span>
+    <span class="stat-action muted">Menunggu konfirmasi</span>
+  </div>
+</div>
+
+<section class="section">
+  <div class="section-head">
+    <h2>Transaksi terakhir</h2>
+    <a href="/transaksi" class="link-more">Lihat semua</a>
+  </div>
+
+  <% if (recent.length === 0) { %>
+    <div class="card empty-state">
+      <p>Belum ada transaksi.</p>
+      <a href="/" class="btn btn-primary btn-sm">Mulai top up</a>
+    </div>
+  <% } else { %>
+    <%- include('../partials/transaction-table', { transactions: recent }) %>
+  <% } %>
+</section>
+
+<%- include('../partials/footer') %>
