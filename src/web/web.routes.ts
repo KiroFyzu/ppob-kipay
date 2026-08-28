@@ -258,6 +258,39 @@ webRouter.post('/topup', requireWebLogin, verifyCsrf, async (req, res, next) => 
   }
 });
 
+/**
+ * "Riwayat Transaksi" dan "Detail Transaksi" menggabungkan dua sumber yang
+ * berbeda modelnya di database -- Transaction (topup e-wallet) dan
+ * BankTransfer (transfer bank) -- supaya user punya SATU riwayat, bukan dua
+ * halaman terpisah yang gampang bikin bingung ("transaksiku ke mana?").
+ * toPublicTransaction()/toPublicBankTransfer() masing-masing sudah menambah
+ * field `kind` untuk membedakannya di template.
+ */
+async function listCombinedHistory(
+  userId: string,
+  options: { limit: number; status?: string },
+) {
+  const [tx, bt] = await Promise.all([
+    txService.listTransactions(userId, options),
+    bankTransferService.listBankTransfers(userId, options),
+  ]);
+
+  return [...tx.transactions, ...bt.bankTransfers]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, options.limit);
+}
+
+async function getCombinedTransaction(userId: string, ref: string) {
+  try {
+    return txService.toPublicTransaction(await txService.getTransaction(userId, ref));
+  } catch (err) {
+    if (!(err instanceof AppError) || err.statusCode !== 404) throw err;
+  }
+  return bankTransferService.toPublicBankTransfer(
+    await bankTransferService.getBankTransfer(userId, ref),
+  );
+}
+
 webRouter.get('/transaksi', requireWebLogin, async (req, res, next) => {
   try {
     const user = req.webUser!;
@@ -266,14 +299,14 @@ webRouter.get('/transaksi', requireWebLogin, async (req, res, next) => {
       ? statusParam
       : undefined;
 
-    const result = await txService.listTransactions(user.id, {
+    const transactions = await listCombinedHistory(user.id, {
       limit: 25,
       ...(status ? { status } : {}),
     });
 
     res.render('pages/transactions', {
       title: 'Riwayat Transaksi',
-      transactions: result.transactions,
+      transactions,
       statuses: Object.values(TxStatus),
       activeStatus: status ?? null,
     });
@@ -285,11 +318,11 @@ webRouter.get('/transaksi', requireWebLogin, async (req, res, next) => {
 webRouter.get('/transaksi/:ref', requireWebLogin, async (req, res, next) => {
   try {
     const user = req.webUser!;
-    const tx = await txService.getTransaction(user.id, String(req.params['ref']));
+    const tx = await getCombinedTransaction(user.id, String(req.params['ref']));
 
     res.render('pages/transaction-detail', {
       title: `Transaksi ${tx.refId}`,
-      tx: txService.toPublicTransaction(tx),
+      tx,
       // Halaman menyegarkan diri sendiri selama status belum final, memakai
       // meta refresh supaya tetap bekerja tanpa JavaScript.
       autoRefresh: tx.status === TxStatus.PENDING || tx.status === TxStatus.PROCESSING,
@@ -351,7 +384,7 @@ webRouter.post('/transfer-bank', requireWebLogin, verifyCsrf, async (req, res, n
       nominal: input.nominal,
     });
 
-    res.redirect(`/transfer-bank/${bankTransfer.refId}`);
+    res.redirect(`/transaksi/${bankTransfer.refId}`);
   } catch (err) {
     const message = toFormError(err);
     if (!message) {
@@ -379,19 +412,11 @@ webRouter.post('/transfer-bank', requireWebLogin, verifyCsrf, async (req, res, n
   }
 });
 
-webRouter.get('/transfer-bank/:ref', requireWebLogin, async (req, res, next) => {
-  try {
-    const user = req.webUser!;
-    const bt = await bankTransferService.getBankTransfer(user.id, String(req.params['ref']));
-
-    res.render('pages/bank-transfer-detail', {
-      title: `Transfer Bank ${bt.refId}`,
-      bt: bankTransferService.toPublicBankTransfer(bt),
-      autoRefresh: bt.status === TxStatus.PENDING || bt.status === TxStatus.PROCESSING,
-    });
-  } catch (err) {
-    next(err);
-  }
+// Detail transfer bank sekarang dilayani oleh /transaksi/:ref (satu halaman
+// struk untuk e-wallet maupun bank), supaya tidak ada dua template yang
+// gampang tidak sinkron. Redirect ini menjaga tautan lama tetap bekerja.
+webRouter.get('/transfer-bank/:ref', requireWebLogin, (req, res) => {
+  res.redirect(`/transaksi/${req.params['ref']}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -492,24 +517,30 @@ webRouter.get('/dasbor', requireWebLogin, async (req, res, next) => {
   try {
     const user = req.webUser!;
 
-    const [recent, counts] = await Promise.all([
-      txService.listTransactions(user.id, { limit: 5 }),
+    const [recent, txCounts, btCounts] = await Promise.all([
+      listCombinedHistory(user.id, { limit: 5 }),
       prisma.transaction.groupBy({
+        by: ['status'],
+        where: { userId: user.id },
+        _count: { _all: true },
+      }),
+      prisma.bankTransfer.groupBy({
         by: ['status'],
         where: { userId: user.id },
         _count: { _all: true },
       }),
     ]);
 
-    const summary = Object.fromEntries(
-      counts.map((row) => [row.status, row._count._all]),
-    ) as Record<string, number>;
+    const summary: Record<string, number> = {};
+    for (const row of [...txCounts, ...btCounts]) {
+      summary[row.status] = (summary[row.status] ?? 0) + row._count._all;
+    }
 
     res.render('pages/dashboard', {
       title: 'Dasbor',
-      recent: recent.transactions,
+      recent,
       summary,
-      totalTransactions: counts.reduce((sum, row) => sum + row._count._all, 0),
+      totalTransactions: Object.values(summary).reduce((sum, n) => sum + n, 0),
     });
   } catch (err) {
     next(err);

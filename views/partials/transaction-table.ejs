@@ -14,10 +14,17 @@
       <% transactions.forEach(function (t) { %>
         <tr>
           <td class="nowrap"><%= tanggal(t.createdAt) %></td>
-          <td>
-            <span class="brand-pill <%= brandClass(t.brand) %>"><%= t.brandLabel %></span>
-            <span class="nominal-inline"><%= rupiah(t.nominal) %></span>
-          </td>
+          <% if (t.kind === 'BANK_TRANSFER') { %>
+            <td>
+              <span class="brand-pill brand-bank">Transfer Bank</span>
+              <span class="nominal-inline"><%= t.bankLabel %> &middot; <%= rupiah(t.nominal) %></span>
+            </td>
+          <% } else { %>
+            <td>
+              <span class="brand-pill <%= brandClass(t.brand) %>"><%= t.brandLabel %></span>
+              <span class="nominal-inline"><%= rupiah(t.nominal) %></span>
+            </td>
+          <% } %>
           <td class="mono"><%= t.targetNumber %></td>
           <td class="num"><%= rupiah(t.price) %></td>
           <td><span class="<%= statusClass(t.status) %>"><%= statusLabel(t.status) %></span></td>

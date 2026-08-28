@@ -226,6 +226,7 @@ main { padding: 2rem 1.25rem 3.5rem; min-height: 65vh; }
 .brand-ovo { --brand-color: #7d4fd6; }
 .brand-gopay { --brand-color: #0095c8; }
 .brand-shopeepay { --brand-color: #ee4d2d; }
+.brand-bank { --brand-color: #2f7a4d; }
 
 .brand-pill {
   display: inline-block; padding: .12rem .5rem; border-radius: 5px;
@@ -450,3 +451,44 @@ main { padding: 2rem 1.25rem 3.5rem; min-height: 65vh; }
   padding: 1rem 1.2rem; overflow-x: auto; font-size: .82rem; line-height: 1.6; margin: .6rem 0 1rem;
 }
 .code-block code { background: none; padding: 0; color: inherit; }
+
+/* --- Responsif -------------------------------------------------------------
+   Breakpoint tunggal di 640px cukup untuk situs ini: layoutnya sudah fluid
+   (grid auto-fit, table-wrap yang scroll sendiri) lewat lebar itu, jadi yang
+   perlu disesuaikan cuma header (terlalu banyak tautan nav untuk satu baris
+   di layar sempit), tipografi, dan padding kartu/struk yang kepenuhan. */
+@media (max-width: 640px) {
+  .container { padding: 0 1rem; }
+
+  .header-inner { height: auto; padding: .6rem 0; row-gap: .5rem; }
+  .nav {
+    order: 3; width: 100%; flex-wrap: nowrap; margin-right: 0;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: .15rem;
+  }
+  .nav a { flex: 0 0 auto; }
+  .header-account { margin-left: auto; }
+
+  main { padding: 1.4rem 1rem 2.5rem; }
+
+  h1 { font-size: 1.4rem; }
+  .hero h1 { font-size: 1.55rem; }
+
+  .card { padding: 1.1rem; }
+
+  .form-row { flex-direction: column; align-items: stretch; }
+  .detail-actions { flex-direction: column; }
+  .detail-actions .btn { width: 100%; }
+
+  .receipt-row { flex-wrap: wrap; row-gap: .2rem; }
+  .receipt-row dd { text-align: right; word-break: break-word; }
+
+  .table th, .table td { padding: .55rem .65rem; }
+  .table { font-size: .82rem; }
+
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .pay-qr-image { width: min(220px, 60vw); height: auto; aspect-ratio: 1 / 1; }
+}
+
+@media (max-width: 400px) {
+  .stat-grid { grid-template-columns: 1fr; }
+}

@@ -102,7 +102,7 @@
                   <td class="num"><%= rupiah(b.nominal) %></td>
                   <td><span class="<%= statusClass(b.status) %>"><%= statusLabel(b.status) %></span></td>
                   <td class="num">
-                    <a class="link-more" href="/transfer-bank/<%= b.refId %>">Detail</a>
+                    <a class="link-more" href="/transaksi/<%= b.refId %>">Detail</a>
                   </td>
                 </tr>
               <% }) %>
