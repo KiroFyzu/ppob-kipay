@@ -143,11 +143,16 @@ Kirim `Authorization: Bearer <jwt>` atau `X-API-Key: sk_...`.
 |---|---|---|
 | GET | `/api/v1/admin/supplier/balance` | Saldo kita di TokoVoucher |
 | POST | `/api/v1/admin/products/sync` | Tarik katalog dari API supplier |
+| GET | `/api/v1/admin/stats` | Ringkasan: produk, pengguna, transaksi ditinjau, keuntungan |
 | POST | `/api/v1/admin/deposits/:invoiceId/confirm` | Konfirmasi pembayaran manual |
 | POST | `/api/v1/admin/balance/adjust` | Penyesuaian saldo (wajib beralasan) |
 | GET | `/api/v1/admin/balance/audit/:userId` | Bandingkan saldo dengan ledger |
 | GET/POST/DELETE | `/api/v1/admin/blocked-targets` | Kelola nomor yang diblokir |
 | GET | `/api/v1/admin/transactions/flagged` | Transaksi yang butuh tinjauan manual |
+| GET | `/api/v1/admin/transactions/successful` | Transaksi sukses lintas user (e-wallet + transfer bank) |
+| GET | `/api/v1/admin/users` | Daftar pengguna terdaftar |
+| POST | `/api/v1/admin/users/:id/activate` | Aktifkan akun |
+| POST | `/api/v1/admin/users/:id/deactivate` | Nonaktifkan akun (tidak bisa untuk akun sendiri) |
 
 ### Webhook
 

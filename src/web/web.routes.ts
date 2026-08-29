@@ -13,6 +13,7 @@ import { getLedgerHistory } from '../modules/balance/ledger.service';
 import * as productService from '../modules/products/product.service';
 import { blockTarget, unblockTarget } from '../modules/transactions/fraud.service';
 import * as txService from '../modules/transactions/transaction.service';
+import * as userService from '../modules/users/user.service';
 import { fetchKipayQrImage } from '../providers/kipay/client';
 import { KipayUnavailableError } from '../providers/kipay/types';
 import { supplier } from '../providers/tokovoucher';
@@ -695,25 +696,59 @@ webRouter.post(
 // Admin
 // ---------------------------------------------------------------------------
 
-webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (_req, res, next) => {
+webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (req, res, next) => {
   try {
-    const [pendingDeposits, blocked, flagged, productCount, userCount] =
-      await Promise.all([
-        prisma.deposit.findMany({
-          where: { status: DepositStatus.PENDING },
-          orderBy: { createdAt: 'desc' },
-          take: 20,
-          include: { user: { select: { email: true, name: true } } },
-        }),
-        prisma.blockedTarget.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
-        prisma.transaction.findMany({
-          where: { flaggedReason: { not: null } },
-          orderBy: { createdAt: 'desc' },
-          take: 20,
-        }),
-        prisma.product.count({ where: { isActive: true } }),
-        prisma.user.count(),
-      ]);
+    const [
+      pendingDeposits,
+      blocked,
+      flagged,
+      productCount,
+      userCount,
+      users,
+      successTx,
+      successBt,
+      txProfit,
+      btProfit,
+    ] = await Promise.all([
+      prisma.deposit.findMany({
+        where: { status: DepositStatus.PENDING },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: { user: { select: { email: true, name: true } } },
+      }),
+      prisma.blockedTarget.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
+      prisma.transaction.findMany({
+        where: { flaggedReason: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+      prisma.product.count({ where: { isActive: true } }),
+      prisma.user.count(),
+      userService.listUsers({ limit: 50 }),
+      prisma.transaction.findMany({
+        where: { status: TxStatus.SUCCESS },
+        orderBy: { completedAt: 'desc' },
+        take: 15,
+        include: { user: { select: { email: true, name: true } } },
+      }),
+      prisma.bankTransfer.findMany({
+        where: { status: TxStatus.SUCCESS },
+        orderBy: { completedAt: 'desc' },
+        take: 15,
+        include: { user: { select: { email: true, name: true } } },
+      }),
+      // Keuntungan = sellPrice - basePrice, dijumlahkan lewat aggregate
+      // (bukan diambil semua baris lalu dijumlahkan di Node) supaya tetap
+      // murah walau transaksi sukses sudah puluhan ribu baris.
+      prisma.transaction.aggregate({
+        where: { status: TxStatus.SUCCESS },
+        _sum: { sellPrice: true, basePrice: true },
+      }),
+      prisma.bankTransfer.aggregate({
+        where: { status: TxStatus.SUCCESS },
+        _sum: { sellPrice: true, basePrice: true },
+      }),
+    ]);
 
     // Saldo supplier tidak boleh menjatuhkan seluruh halaman kalau API-nya
     // sedang bermasalah -- sisanya masih berguna.
@@ -725,6 +760,22 @@ webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (_req, res, next
       supplierError = err instanceof Error ? err.message : 'Tidak dapat dihubungi';
     }
 
+    const successfulTransactions = [
+      ...successTx.map((t) => ({ ...txService.toPublicTransaction(t), user: t.user })),
+      ...successBt.map((b) => ({ ...bankTransferService.toPublicBankTransfer(b), user: b.user })),
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime(),
+      )
+      .slice(0, 15);
+
+    const totalProfit =
+      (txProfit._sum.sellPrice ?? 0) -
+      (txProfit._sum.basePrice ?? 0) +
+      (btProfit._sum.sellPrice ?? 0) -
+      (btProfit._sum.basePrice ?? 0);
+
     res.render('pages/admin', {
       title: 'Panel Admin',
       pendingDeposits,
@@ -732,8 +783,12 @@ webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (_req, res, next
       flagged,
       productCount,
       userCount,
+      users,
+      successfulTransactions,
+      totalProfit,
       supplierBalance,
       supplierError,
+      currentAdminId: req.webUser!.id,
       notice: null,
       error: null,
     });
@@ -741,6 +796,38 @@ webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (_req, res, next
     next(err);
   }
 });
+
+webRouter.post(
+  '/admin/users/:id/aktifkan',
+  requireWebLogin,
+  requireWebAdmin,
+  verifyCsrf,
+  async (req, res, next) => {
+    try {
+      const admin = req.webUser!;
+      await userService.setUserActive(admin.id, String(req.params['id']), true);
+      res.redirect('/admin');
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+webRouter.post(
+  '/admin/users/:id/nonaktifkan',
+  requireWebLogin,
+  requireWebAdmin,
+  verifyCsrf,
+  async (req, res, next) => {
+    try {
+      const admin = req.webUser!;
+      await userService.setUserActive(admin.id, String(req.params['id']), false);
+      res.redirect('/admin');
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 webRouter.post(
   '/admin/deposit/:invoiceId/konfirmasi',

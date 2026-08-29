@@ -2,7 +2,7 @@
 
 <section class="page-head">
   <h1>Panel Admin</h1>
-  <p>Konfirmasi pembayaran, pantau transaksi bermasalah, kelola blokir nomor.</p>
+  <p>Konfirmasi pembayaran, pantau transaksi, kelola pengguna dan blokir nomor.</p>
 </section>
 
 <div class="stat-grid">
@@ -24,12 +24,17 @@
   <div class="card stat">
     <span class="stat-label">Pengguna</span>
     <span class="stat-value"><%= userCount %></span>
-    <span class="stat-action muted">Terdaftar</span>
+    <span class="stat-action">Kelola di bawah &darr;</span>
   </div>
   <div class="card stat">
     <span class="stat-label">Perlu ditinjau</span>
     <span class="stat-value <%= flagged.length > 0 ? 'failed' : '' %>"><%= flagged.length %></span>
     <span class="stat-action muted">Transaksi macet</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Keuntungan</span>
+    <span class="stat-value success"><%= rupiah(totalProfit) %></span>
+    <span class="stat-action muted">Margin dari seluruh transaksi sukses</span>
   </div>
 </div>
 
@@ -96,6 +101,87 @@
               <td class="num"><%= rupiah(t.nominal) %></td>
               <td class="small"><%= t.flaggedReason %></td>
               <td class="small nowrap"><%= tanggal(t.createdAt) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="section">
+  <h2>Transaksi berhasil</h2>
+  <p class="hint">15 transaksi sukses terakhir, gabungan topup e-wallet dan transfer bank.</p>
+
+  <% if (successfulTransactions.length === 0) { %>
+    <div class="card empty-state"><p>Belum ada transaksi yang berhasil.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Kode</th><th>Pengguna</th><th>Layanan</th><th class="num">Nominal</th><th>Selesai</th></tr>
+        </thead>
+        <tbody>
+          <% successfulTransactions.forEach(function (t) { %>
+            <tr>
+              <td class="mono small"><%= t.refId %></td>
+              <td class="small"><%= t.user.name %><br><span class="muted"><%= t.user.email %></span></td>
+              <% if (t.kind === 'BANK_TRANSFER') { %>
+                <td><span class="brand-pill brand-bank">Transfer Bank</span> <span class="muted small"><%= t.bankLabel %></span></td>
+              <% } else { %>
+                <td><span class="brand-pill <%= brandClass(t.brand) %>"><%= t.brandLabel %></span></td>
+              <% } %>
+              <td class="num"><%= rupiah(t.nominal) %></td>
+              <td class="small nowrap"><%= tanggal(t.completedAt) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="section">
+  <h2>Kelola pengguna</h2>
+  <p class="hint">50 pengguna terbaru. Akun nonaktif tidak bisa login maupun memakai API key-nya.</p>
+
+  <% if (users.length === 0) { %>
+    <div class="card empty-state"><p>Belum ada pengguna terdaftar.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Pengguna</th><th>Saldo</th><th>Role</th><th>Daftar</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% users.forEach(function (u) { %>
+            <tr>
+              <td class="small"><%= u.name %><br><span class="muted mono"><%= u.email %></span></td>
+              <td class="num"><%= rupiah(u.balance) %></td>
+              <td class="small"><%= u.role %></td>
+              <td class="small nowrap"><%= tanggal(u.createdAt) %></td>
+              <td>
+                <% if (u.isActive) { %>
+                  <span class="badge badge-success">Aktif</span>
+                <% } else { %>
+                  <span class="badge badge-failed">Nonaktif</span>
+                <% } %>
+              </td>
+              <td class="num">
+                <% if (u.id === currentAdminId) { %>
+                  <span class="muted small">Akunmu</span>
+                <% } else if (u.isActive) { %>
+                  <form method="post" action="/admin/users/<%= u.id %>/nonaktifkan" class="inline-form">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn btn-ghost btn-sm">Nonaktifkan</button>
+                  </form>
+                <% } else { %>
+                  <form method="post" action="/admin/users/<%= u.id %>/aktifkan" class="inline-form">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn btn-ghost btn-sm">Aktifkan</button>
+                  </form>
+                <% } %>
+              </td>
             </tr>
           <% }) %>
         </tbody>

@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { LedgerType } from '../../domain/enums';
+import { LedgerType, TxStatus } from '../../domain/enums';
 import { prisma } from '../../lib/prisma';
 import { supplier } from '../../providers/tokovoucher';
+import { toPublicBankTransfer } from '../../modules/bank-transfer/bank-transfer.service';
 import { markDepositPaid } from '../../modules/balance/deposit.service';
 import { auditBalance, postMutation } from '../../modules/balance/ledger.service';
 import { syncCatalogFromSupplier } from '../../modules/products/product.service';
 import { blockTarget, unblockTarget } from '../../modules/transactions/fraud.service';
+import { toPublicTransaction } from '../../modules/transactions/transaction.service';
+import { listUsers, setUserActive } from '../../modules/users/user.service';
 import { normalizePhone } from '../../utils/phone';
 import { asyncHandler, ok, readPagination, requireUser } from '../helpers';
 import { authenticate, requireAdmin } from '../middleware/auth.middleware';
@@ -27,6 +30,38 @@ adminRouter.post(
   '/products/sync',
   asyncHandler(async (_req, res) => {
     ok(res, await syncCatalogFromSupplier());
+  }),
+);
+
+/**
+ * Ringkasan angka untuk dashboard admin: jumlah produk/pengguna, transaksi
+ * yang butuh tinjauan, dan keuntungan (sellPrice - basePrice, dijumlahkan
+ * lewat aggregate) dari seluruh transaksi sukses -- e-wallet dan bank.
+ */
+adminRouter.get(
+  '/stats',
+  asyncHandler(async (_req, res) => {
+    const [productCount, userCount, flaggedCount, txProfit, btProfit] = await Promise.all([
+      prisma.product.count({ where: { isActive: true } }),
+      prisma.user.count(),
+      prisma.transaction.count({ where: { flaggedReason: { not: null } } }),
+      prisma.transaction.aggregate({
+        where: { status: TxStatus.SUCCESS },
+        _sum: { sellPrice: true, basePrice: true },
+      }),
+      prisma.bankTransfer.aggregate({
+        where: { status: TxStatus.SUCCESS },
+        _sum: { sellPrice: true, basePrice: true },
+      }),
+    ]);
+
+    const totalProfit =
+      (txProfit._sum.sellPrice ?? 0) -
+      (txProfit._sum.basePrice ?? 0) +
+      (btProfit._sum.sellPrice ?? 0) -
+      (btProfit._sum.basePrice ?? 0);
+
+    ok(res, { productCount, userCount, flaggedCount, totalProfit });
   }),
 );
 
@@ -138,5 +173,70 @@ adminRouter.get(
         take: limit,
       }),
     );
+  }),
+);
+
+/**
+ * Transaksi berhasil lintas user, digabung dari topup e-wallet dan transfer
+ * bank -- sama seperti halaman "Detail Transaksi" di web, dipakai admin untuk
+ * memantau transaksi yang benar-benar sukses terkirim.
+ */
+adminRouter.get(
+  '/transactions/successful',
+  asyncHandler(async (req, res) => {
+    const { limit } = readPagination(req);
+
+    const [tx, bt] = await Promise.all([
+      prisma.transaction.findMany({
+        where: { status: TxStatus.SUCCESS },
+        orderBy: { completedAt: 'desc' },
+        take: limit,
+        include: { user: { select: { id: true, email: true, name: true } } },
+      }),
+      prisma.bankTransfer.findMany({
+        where: { status: TxStatus.SUCCESS },
+        orderBy: { completedAt: 'desc' },
+        take: limit,
+        include: { user: { select: { id: true, email: true, name: true } } },
+      }),
+    ]);
+
+    const merged = [
+      ...tx.map((t) => ({ ...toPublicTransaction(t), user: t.user })),
+      ...bt.map((b) => ({ ...toPublicBankTransfer(b), user: b.user })),
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime(),
+      )
+      .slice(0, limit);
+
+    ok(res, merged);
+  }),
+);
+
+// --- Pengguna ---------------------------------------------------------------
+
+adminRouter.get(
+  '/users',
+  asyncHandler(async (req, res) => {
+    const { limit } = readPagination(req);
+    ok(res, await listUsers({ limit }));
+  }),
+);
+
+adminRouter.post(
+  '/users/:id/activate',
+  asyncHandler(async (req, res) => {
+    const admin = requireUser(req);
+    ok(res, await setUserActive(admin.id, String(req.params['id']), true));
+  }),
+);
+
+adminRouter.post(
+  '/users/:id/deactivate',
+  asyncHandler(async (req, res) => {
+    const admin = requireUser(req);
+    ok(res, await setUserActive(admin.id, String(req.params['id']), false));
   }),
 );

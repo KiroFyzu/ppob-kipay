@@ -154,11 +154,16 @@
       <tbody>
         <tr><td>GET</td><td class="mono">/api/v1/admin/supplier/balance</td><td>Saldo kita di TokoVoucher</td></tr>
         <tr><td>POST</td><td class="mono">/api/v1/admin/products/sync</td><td>Tarik katalog dari API supplier</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/admin/stats</td><td>Ringkasan: produk, pengguna, transaksi ditinjau, keuntungan</td></tr>
         <tr><td>POST</td><td class="mono">/api/v1/admin/deposits/:invoiceId/confirm</td><td>Konfirmasi pembayaran manual</td></tr>
         <tr><td>POST</td><td class="mono">/api/v1/admin/balance/adjust</td><td>Penyesuaian saldo (wajib beralasan)</td></tr>
         <tr><td>GET</td><td class="mono">/api/v1/admin/balance/audit/:userId</td><td>Bandingkan saldo dengan ledger</td></tr>
         <tr><td>GET/POST/DELETE</td><td class="mono">/api/v1/admin/blocked-targets</td><td>Kelola nomor/rekening yang diblokir</td></tr>
         <tr><td>GET</td><td class="mono">/api/v1/admin/transactions/flagged</td><td>Transaksi yang butuh tinjauan manual</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/admin/transactions/successful</td><td>Transaksi sukses lintas user (e-wallet + transfer bank)</td></tr>
+        <tr><td>GET</td><td class="mono">/api/v1/admin/users</td><td>Daftar pengguna terdaftar</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/admin/users/:id/activate</td><td>Aktifkan akun</td></tr>
+        <tr><td>POST</td><td class="mono">/api/v1/admin/users/:id/deactivate</td><td>Nonaktifkan akun (tidak bisa untuk akun sendiri)</td></tr>
       </tbody>
     </table>
   </div>
