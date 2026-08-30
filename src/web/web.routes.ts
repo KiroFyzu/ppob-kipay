@@ -707,6 +707,8 @@ webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (req, res, next)
       users,
       successTx,
       successBt,
+      processingTx,
+      processingBt,
       txProfit,
       btProfit,
     ] = await Promise.all([
@@ -735,6 +737,18 @@ webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (req, res, next)
         where: { status: TxStatus.SUCCESS },
         orderBy: { completedAt: 'desc' },
         take: 15,
+        include: { user: { select: { email: true, name: true } } },
+      }),
+      prisma.transaction.findMany({
+        where: { status: TxStatus.PROCESSING },
+        orderBy: { createdAt: 'asc' },
+        take: 30,
+        include: { user: { select: { email: true, name: true } } },
+      }),
+      prisma.bankTransfer.findMany({
+        where: { status: TxStatus.PROCESSING },
+        orderBy: { createdAt: 'asc' },
+        take: 30,
         include: { user: { select: { email: true, name: true } } },
       }),
       // Keuntungan = sellPrice - basePrice, dijumlahkan lewat aggregate
@@ -770,6 +784,19 @@ webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (req, res, next)
       )
       .slice(0, 15);
 
+    const processingTransactions = [
+      ...processingTx.map((t) => ({
+        ...txService.toPublicTransaction(t),
+        user: t.user,
+        refundAction: `/admin/transaksi/${t.id}/refund`,
+      })),
+      ...processingBt.map((b) => ({
+        ...bankTransferService.toPublicBankTransfer(b),
+        user: b.user,
+        refundAction: `/admin/transfer-bank/${b.id}/refund`,
+      })),
+    ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
     const totalProfit =
       (txProfit._sum.sellPrice ?? 0) -
       (txProfit._sum.basePrice ?? 0) +
@@ -785,6 +812,7 @@ webRouter.get('/admin', requireWebLogin, requireWebAdmin, async (req, res, next)
       userCount,
       users,
       successfulTransactions,
+      processingTransactions,
       totalProfit,
       supplierBalance,
       supplierError,
@@ -824,6 +852,40 @@ webRouter.post(
       await userService.setUserActive(admin.id, String(req.params['id']), false);
       res.redirect('/admin');
     } catch (err) {
+      next(err);
+    }
+  },
+);
+
+webRouter.post(
+  '/admin/transaksi/:id/refund',
+  requireWebLogin,
+  requireWebAdmin,
+  verifyCsrf,
+  async (req, res, next) => {
+    try {
+      const admin = req.webUser!;
+      await txService.refundStuckTransaction(String(req.params['id']), admin.id);
+      res.redirect('/admin');
+    } catch (err) {
+      logger.error({ err }, 'Gagal refund manual transaksi dari panel admin');
+      next(err);
+    }
+  },
+);
+
+webRouter.post(
+  '/admin/transfer-bank/:id/refund',
+  requireWebLogin,
+  requireWebAdmin,
+  verifyCsrf,
+  async (req, res, next) => {
+    try {
+      const admin = req.webUser!;
+      await bankTransferService.refundStuckBankTransfer(String(req.params['id']), admin.id);
+      res.redirect('/admin');
+    } catch (err) {
+      logger.error({ err }, 'Gagal refund manual transfer bank dari panel admin');
       next(err);
     }
   },

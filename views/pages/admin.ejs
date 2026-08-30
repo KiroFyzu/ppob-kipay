@@ -110,6 +110,50 @@
 </section>
 
 <section class="section">
+  <h2>Transaksi sedang diproses</h2>
+  <p class="hint">
+    Refund manual hanya untuk transaksi yang sudah lama macet tanpa kepastian
+    dari supplier. Pastikan dulu di dashboard supplier bahwa saldonya belum
+    benar-benar terkirim -- kalau ternyata sudah terkirim lalu di-refund,
+    pengguna menerima dua-duanya dan itu tidak bisa ditarik balik.
+  </p>
+
+  <% if (processingTransactions.length === 0) { %>
+    <div class="card empty-state"><p>Tidak ada transaksi yang sedang diproses.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Kode</th><th>Pengguna</th><th>Layanan</th><th class="num">Nominal</th><th>Dibuat</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% processingTransactions.forEach(function (t) { %>
+            <tr>
+              <td class="mono small"><%= t.refId %></td>
+              <td class="small"><%= t.user.name %><br><span class="muted"><%= t.user.email %></span></td>
+              <% if (t.kind === 'BANK_TRANSFER') { %>
+                <td><span class="brand-pill brand-bank">Transfer Bank</span> <span class="muted small"><%= t.bankLabel %></span></td>
+              <% } else { %>
+                <td><span class="brand-pill <%= brandClass(t.brand) %>"><%= t.brandLabel %></span></td>
+              <% } %>
+              <td class="num"><%= rupiah(t.nominal) %></td>
+              <td class="small nowrap"><%= tanggal(t.createdAt) %></td>
+              <td class="num">
+                <form method="post" action="<%= t.refundAction %>" class="inline-form"
+                  onsubmit="return confirm('Refund manual '+ '<%= rupiah(t.nominal) %>' +' ke pengguna ini? Pastikan sudah dicek belum terkirim di supplier.');">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-ghost btn-sm">Refund</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="section">
   <h2>Transaksi berhasil</h2>
   <p class="hint">15 transaksi sukses terakhir, gabungan topup e-wallet dan transfer bank.</p>
 

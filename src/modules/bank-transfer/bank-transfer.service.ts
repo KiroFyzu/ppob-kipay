@@ -308,6 +308,47 @@ export async function applySupplierResult(
   });
 }
 
+/** Sama persis alasannya dengan refundStuckTransaction() milik topup e-wallet. */
+export async function refundStuckBankTransfer(bankTransferId: string, adminId: string) {
+  return prisma.$transaction(async (db) => {
+    const bt = await db.bankTransfer.findUniqueOrThrow({
+      where: { id: bankTransferId },
+    });
+
+    if (bt.status !== TxStatus.PROCESSING) {
+      throw badRequest(
+        'NOT_PROCESSING',
+        'Hanya transfer bank berstatus "Diproses" yang bisa di-refund manual',
+      );
+    }
+
+    await postMutation({
+      db,
+      userId: bt.userId,
+      type: LedgerType.REFUND,
+      amount: bt.sellPrice,
+      description: `Refund manual oleh admin ${adminId}: ${bt.refId}`,
+      postingKey: `REFUND:${bt.id}`,
+      bankTransferId: bt.id,
+    });
+
+    logger.warn(
+      { refId: bt.refId, adminId },
+      'Transfer bank PROCESSING di-refund manual oleh admin',
+    );
+
+    return db.bankTransfer.update({
+      where: { id: bt.id },
+      data: {
+        status: TxStatus.REFUNDED,
+        supplierMessage: `Refund manual oleh admin (${adminId})`,
+        completedAt: new Date(),
+        nextCheckAt: null,
+      },
+    });
+  });
+}
+
 export async function getBankTransfer(userId: string, refIdOrId: string) {
   const bt = await prisma.bankTransfer.findFirst({
     where: {

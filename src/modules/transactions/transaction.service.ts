@@ -347,6 +347,56 @@ export async function applySupplierResult(
   });
 }
 
+/**
+ * Refund manual oleh admin untuk transaksi yang masih PROCESSING -- dipakai
+ * saat transaksi macet lama tanpa kepastian dari supplier (mis. order awal
+ * tidak pernah benar-benar sampai ke supplier, jadi checkStatus tidak akan
+ * pernah menemukan hasilnya). Sengaja hanya boleh untuk PROCESSING, bukan
+ * status apa pun: admin wajib sudah memastikan sendiri saldonya belum
+ * benar-benar terkirim, karena begitu di-refund, hasil supplier yang datang
+ * belakangan (sukses) akan diabaikan oleh applySupplierResult() -- lihat
+ * pengecekan isTerminal() di sana.
+ */
+export async function refundStuckTransaction(transactionId: string, adminId: string) {
+  return prisma.$transaction(async (db) => {
+    const tx = await db.transaction.findUniqueOrThrow({
+      where: { id: transactionId },
+    });
+
+    if (tx.status !== TxStatus.PROCESSING) {
+      throw badRequest(
+        'NOT_PROCESSING',
+        'Hanya transaksi berstatus "Diproses" yang bisa di-refund manual',
+      );
+    }
+
+    await postMutation({
+      db,
+      userId: tx.userId,
+      type: LedgerType.REFUND,
+      amount: tx.sellPrice,
+      description: `Refund manual oleh admin ${adminId}: ${tx.refId}`,
+      postingKey: `REFUND:${tx.id}`,
+      transactionId: tx.id,
+    });
+
+    logger.warn(
+      { refId: tx.refId, adminId },
+      'Transaksi PROCESSING di-refund manual oleh admin',
+    );
+
+    return db.transaction.update({
+      where: { id: tx.id },
+      data: {
+        status: TxStatus.REFUNDED,
+        supplierMessage: `Refund manual oleh admin (${adminId})`,
+        completedAt: new Date(),
+        nextCheckAt: null,
+      },
+    });
+  });
+}
+
 export async function getTransaction(userId: string, refIdOrId: string) {
   const tx = await prisma.transaction.findFirst({
     where: {

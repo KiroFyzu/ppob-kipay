@@ -3,12 +3,18 @@ import { z } from 'zod';
 import { LedgerType, TxStatus } from '../../domain/enums';
 import { prisma } from '../../lib/prisma';
 import { supplier } from '../../providers/tokovoucher';
-import { toPublicBankTransfer } from '../../modules/bank-transfer/bank-transfer.service';
+import {
+  refundStuckBankTransfer,
+  toPublicBankTransfer,
+} from '../../modules/bank-transfer/bank-transfer.service';
 import { markDepositPaid } from '../../modules/balance/deposit.service';
 import { auditBalance, postMutation } from '../../modules/balance/ledger.service';
 import { syncCatalogFromSupplier } from '../../modules/products/product.service';
 import { blockTarget, unblockTarget } from '../../modules/transactions/fraud.service';
-import { toPublicTransaction } from '../../modules/transactions/transaction.service';
+import {
+  refundStuckTransaction,
+  toPublicTransaction,
+} from '../../modules/transactions/transaction.service';
 import { listUsers, setUserActive } from '../../modules/users/user.service';
 import { normalizePhone } from '../../utils/phone';
 import { asyncHandler, ok, readPagination, requireUser } from '../helpers';
@@ -173,6 +179,57 @@ adminRouter.get(
         take: limit,
       }),
     );
+  }),
+);
+
+/**
+ * Transaksi yang masih "Diproses" lintas user -- kandidat refund manual saat
+ * macet lama tanpa kepastian dari supplier.
+ */
+adminRouter.get(
+  '/transactions/processing',
+  asyncHandler(async (req, res) => {
+    const { limit } = readPagination(req);
+
+    const [tx, bt] = await Promise.all([
+      prisma.transaction.findMany({
+        where: { status: TxStatus.PROCESSING },
+        orderBy: { createdAt: 'asc' },
+        take: limit,
+        include: { user: { select: { id: true, email: true, name: true } } },
+      }),
+      prisma.bankTransfer.findMany({
+        where: { status: TxStatus.PROCESSING },
+        orderBy: { createdAt: 'asc' },
+        take: limit,
+        include: { user: { select: { id: true, email: true, name: true } } },
+      }),
+    ]);
+
+    ok(res, {
+      transactions: tx.map((t) => ({ ...toPublicTransaction(t), user: t.user })),
+      bankTransfers: bt.map((b) => ({ ...toPublicBankTransfer(b), user: b.user })),
+    });
+  }),
+);
+
+/**
+ * Refund manual untuk transaksi/transfer bank yang masih PROCESSING. Lihat
+ * catatan di refundStuckTransaction() soal risikonya.
+ */
+adminRouter.post(
+  '/transactions/:id/refund',
+  asyncHandler(async (req, res) => {
+    const admin = requireUser(req);
+    ok(res, await refundStuckTransaction(String(req.params['id']), admin.id));
+  }),
+);
+
+adminRouter.post(
+  '/bank-transfers/:id/refund',
+  asyncHandler(async (req, res) => {
+    const admin = requireUser(req);
+    ok(res, await refundStuckBankTransfer(String(req.params['id']), admin.id));
   }),
 );
 
