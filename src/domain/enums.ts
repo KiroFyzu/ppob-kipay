@@ -101,10 +101,12 @@ export type LedgerType = (typeof LedgerType)[keyof typeof LedgerType];
  * mempercantik label di UI.
  */
 export const BANK_LABEL: Record<string, string> = {
-  mandiri: 'Bank Mandiri',
-  kesejahteraan_ekonomi: 'Seabank Indonesia',
   bca: 'Bank BCA',
+  bni: 'Bank BNI',
   bri: 'Bank BRI',
+  mandiri: 'Bank Mandiri',
+  bsm: 'Bank Syariah Indonesia (BSI)',
+  kesejahteraan_ekonomi: 'Seabank Indonesia',
   artos: 'Bank Jago',
 };
 
