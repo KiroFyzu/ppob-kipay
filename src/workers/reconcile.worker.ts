@@ -105,7 +105,7 @@ async function reconcileProcessing(): Promise<number> {
           where: { id: tx.id },
           data: {
             lastCheckedAt: new Date(),
-            nextCheckAt: new Date(Date.now() + 60_000),
+            nextCheckAt: new Date(Date.now() + 15_000),
           },
         });
         logger.debug(
@@ -190,7 +190,7 @@ async function reconcileBankTransfersProcessing(): Promise<number> {
           where: { id: bt.id },
           data: {
             lastCheckedAt: new Date(),
-            nextCheckAt: new Date(Date.now() + 60_000),
+            nextCheckAt: new Date(Date.now() + 15_000),
           },
         });
         logger.debug(

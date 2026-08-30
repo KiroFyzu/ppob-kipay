@@ -15,7 +15,7 @@ import { postMutation } from '../balance/ledger.service';
 import { assertBankTransferAllowed } from '../transactions/fraud.service';
 
 /** Sama seperti jadwal recheck topup e-wallet, lihat transaction.service.ts. */
-const RECHECK_BACKOFF_SECONDS = [10, 20, 40, 80, 160, 300, 600, 900, 1800];
+const RECHECK_BACKOFF_SECONDS = [5, 10, 20, 40, 80, 160, 300, 600, 900];
 
 function nextCheckDelay(attemptCount: number): number {
   const index = Math.min(attemptCount, RECHECK_BACKOFF_SECONDS.length - 1);

@@ -18,7 +18,7 @@ import { assertTransactionAllowed } from './fraud.service';
  * sejak transaksi dibuat. Rapat di awal karena mayoritas transaksi selesai
  * dalam hitungan detik, lalu melebar supaya tidak membanjiri supplier.
  */
-const RECHECK_BACKOFF_SECONDS = [10, 20, 40, 80, 160, 300, 600, 900, 1800];
+const RECHECK_BACKOFF_SECONDS = [5, 10, 20, 40, 80, 160, 300, 600, 900];
 
 function nextCheckDelay(attemptCount: number): number {
   const index = Math.min(attemptCount, RECHECK_BACKOFF_SECONDS.length - 1);
