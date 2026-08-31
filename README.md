@@ -280,10 +280,20 @@ nanti tidak mengubah logika saldo sama sekali.
 **Transfer bank lewat TokoVoucher.** `POST /api/v1/bank-transfers` mengirim
 saldo user langsung ke rekening bank (docs.tokovoucher.net/bank-transfer).
 Modelnya (`BankTransfer`) terpisah dari `Transaction` karena tidak ada katalog
-Product di baliknya -- kode bank dan nominal bebas per permintaan, dibatasi
-lewat `BANK_TRANSFER_MIN_AMOUNT`/`BANK_TRANSFER_MAX_AMOUNT`. Alur ledger,
+Product di baliknya -- nominal bebas per permintaan, dibatasi lewat
+`BANK_TRANSFER_MIN_AMOUNT`/`BANK_TRANSFER_MAX_AMOUNT`. Alur ledger,
 idempotency, refund-saat-gagal, dan worker rekonsiliasinya sama persis dengan
 topup e-wallet.
+
+`bankCode` yang dikirim client (`bca`, `bni`, `bri`, `mandiri`, `bsm`,
+`kesejahteraan_ekonomi`, `artos` -- lihat `BANK_LABEL` di `src/domain/enums.ts`)
+adalah bank_id internal kita, dipakai untuk label UI dan disimpan apa adanya
+di kolom `bankCode`. TokoVoucher sendiri wajib bank_code numerik (`014`,
+`009`, dst di parameter `bank`), bukan bank_id -- terjemahannya ada di
+`BANK_CODE` (`src/domain/enums.ts`) dan cuma dipakai tepat sebelum request
+keluar ke supplier (`src/providers/tokovoucher/client.ts`). Kode yang belum
+ada di `BANK_CODE` diteruskan apa adanya, jadi bank baru dari TokoVoucher bisa
+dicoba tanpa deploy dulu (dengan risiko ditolak sampai map-nya diperbarui).
 
 **Harga jual dihitung ulang otomatis** dari harga modal terbaru setiap kali
 katalog disinkronkan, jadi kenaikan harga supplier tidak diam-diam memakan

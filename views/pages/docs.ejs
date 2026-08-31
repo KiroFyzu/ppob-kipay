@@ -117,7 +117,7 @@
 
 <section class="section doc-section" id="transfer-bank">
   <h2>Transfer bank <span class="doc-auth-tag">butuh autentikasi</span></h2>
-  <p>Kirim saldo langsung ke rekening bank lewat TokoVoucher. Tidak ada katalog produk di baliknya &mdash; kode bank dan nominal bebas per permintaan.</p>
+  <p>Kirim saldo langsung ke rekening bank lewat TokoVoucher. Tidak ada katalog produk di baliknya &mdash; nominal bebas per permintaan, mengikuti batas <code>BANK_TRANSFER_MIN_AMOUNT</code>/<code>BANK_TRANSFER_MAX_AMOUNT</code>.</p>
   <div class="table-wrap">
     <table class="table">
       <thead><tr><th>Method</th><th>Path</th><th>Keterangan</th></tr></thead>
@@ -125,6 +125,21 @@
         <tr><td>POST</td><td class="mono">/api/v1/bank-transfers</td><td><code>bankCode</code>, <code>targetNumber</code>, <code>nominal</code></td></tr>
         <tr><td>GET</td><td class="mono">/api/v1/bank-transfers</td><td>Riwayat transfer bank</td></tr>
         <tr><td>GET</td><td class="mono">/api/v1/bank-transfers/:refId</td><td>Detail satu transfer bank</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><code>bankCode</code> yang didukung saat ini:</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>bankCode</th><th>Bank</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">bca</td><td>Bank BCA</td></tr>
+        <tr><td class="mono">bni</td><td>Bank BNI</td></tr>
+        <tr><td class="mono">bri</td><td>Bank BRI</td></tr>
+        <tr><td class="mono">mandiri</td><td>Bank Mandiri</td></tr>
+        <tr><td class="mono">bsm</td><td>Bank Syariah Indonesia (BSI)</td></tr>
+        <tr><td class="mono">kesejahteraan_ekonomi</td><td>Seabank Indonesia</td></tr>
+        <tr><td class="mono">artos</td><td>Bank Jago</td></tr>
       </tbody>
     </table>
   </div>
