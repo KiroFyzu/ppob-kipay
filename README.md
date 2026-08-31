@@ -183,6 +183,22 @@ curl -X POST http://localhost:3000/api/v1/transactions \
 dengan key yang sama mengembalikan transaksi yang sama, bukan membuat
 transaksi baru.
 
+## Status transaksi
+
+Kolom `status` pada `Transaction` dan `BankTransfer` (lihat `src/domain/enums.ts`,
+label Indonesianya di `src/web/view-helpers.ts`):
+
+| Nilai | Label web | Arti |
+|---|---|---|
+| `PENDING` | Menunggu | Baru dibuat, belum dikirim ke supplier |
+| `PROCESSING` | Diproses | Sudah dikirim, hasil belum pasti (saldo sudah terpotong); dicek ulang worker rekonsiliasi, atau di-refund manual admin kalau macet |
+| `SUCCESS` | Berhasil | Final — terkirim ke tujuan |
+| `FAILED` | Gagal | Final — saldo otomatis di-refund |
+| `REFUNDED` | Dikembalikan | Final — saldo sudah dikembalikan (otomatis dari `FAILED` atau manual dari `PROCESSING`) |
+
+Detail lengkap alur `PROCESSING` ada di bagian "Bagaimana uang dijaga" di
+bawah, dan di dokumentasi API publik (`/docs#status-transaksi`).
+
 ## Bagaimana uang dijaga
 
 Ini bagian yang paling menentukan, jadi ditulis eksplisit.

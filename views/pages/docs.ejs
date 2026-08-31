@@ -12,6 +12,7 @@
   <a href="#akun">Akun &amp; API key</a>
   <a href="#produk">Produk &amp; top up</a>
   <a href="#transfer-bank">Transfer bank</a>
+  <a href="#status-transaksi">Status transaksi</a>
   <a href="#saldo">Saldo &amp; deposit</a>
   <!-- <a href="#admin">Admin</a> -->
   <a href="#webhook">Webhook</a>
@@ -127,6 +128,33 @@
       </tbody>
     </table>
   </div>
+</section>
+
+<section class="section doc-section" id="status-transaksi">
+  <h2>Status transaksi</h2>
+  <p>
+    Field <code>status</code> pada transaksi top up (<code>/api/v1/transactions</code>)
+    maupun transfer bank (<code>/api/v1/bank-transfers</code>) memakai nilai
+    yang sama:
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Nilai</th><th>Arti</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">PENDING</td><td>Baru dibuat, belum dikirim ke supplier.</td></tr>
+        <tr><td class="mono">PROCESSING</td><td>Sudah dikirim ke supplier tapi hasilnya belum pasti (mis. supplier tidak bisa dihubungi). Saldo sudah terpotong. Worker rekonsiliasi terus mengecek ulang dengan backoff sampai statusnya final; kalau macet terlalu lama, admin bisa refund manual.</td></tr>
+        <tr><td class="mono">SUCCESS</td><td>Berhasil dikirim ke tujuan. Final, tidak berubah lagi.</td></tr>
+        <tr><td class="mono">FAILED</td><td>Gagal di sisi supplier. Saldo sudah otomatis di-refund. Final.</td></tr>
+        <tr><td class="mono">REFUNDED</td><td>Saldo dikembalikan ke user (baik otomatis dari <code>FAILED</code>, maupun refund manual admin dari <code>PROCESSING</code>). Final.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Selain lewat polling <code>GET /transactions/:refId</code> atau
+    <code>GET /bank-transfers/:refId</code>, perubahan status juga bisa
+    didorong lewat <a href="#webhook">webhook</a> kalau kamu punya endpoint
+    publik untuk menerimanya.
+  </p>
 </section>
 
 <section class="section doc-section" id="saldo">
