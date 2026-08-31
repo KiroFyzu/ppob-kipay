@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { setDefaultResultOrder } from 'node:dns';
 import { env } from '../../config/env';
+import { BANK_CODE } from '../../domain/enums';
 import { logger } from '../../lib/logger';
 import {
   BankTransferParams,
@@ -286,13 +287,18 @@ export class TokoVoucherClient implements SupplierProvider {
     accountNumber,
     nominal,
   }: BankTransferParams): Promise<SupplierOrderResult> {
-    logger.info({ refId, bankCode }, 'Mengirim transfer bank ke TokoVoucher');
+    // TokoVoucher wajib bank_code numerik (mis. "014"), bukan bank_id ("bca")
+    // yang kita simpan/pakai di UI -- lihat BANK_CODE di domain/enums.ts.
+    // Kode yang belum ada di map diteruskan apa adanya supaya bank baru masih
+    // bisa dicoba tanpa deploy, dengan risiko ditolak TokoVoucher.
+    const supplierBankCode = BANK_CODE[bankCode] ?? bankCode;
+    logger.info({ refId, bankCode, supplierBankCode }, 'Mengirim transfer bank ke TokoVoucher');
 
     const res = await request(ENDPOINTS.transferBank, {
       member_code: env.TOKOVOUCHER_MEMBER_CODE,
       signature: signature(refId),
       ref_id: refId,
-      bank: bankCode,
+      bank: supplierBankCode,
       tujuan: accountNumber,
       nominal,
     });

@@ -110,6 +110,22 @@ export const BANK_LABEL: Record<string, string> = {
   artos: 'Bank Jago',
 };
 
+/**
+ * bank_id (kode yang kita simpan/pakai di UI, key BANK_LABEL di atas) ->
+ * bank_code numerik yang menurut docs.tokovoucher.net/bank-transfer WAJIB
+ * dipakai sebagai parameter `bank` saat submit transfer -- bank_id sendiri
+ * ditolak endpoint transfer. Sama-sama dari GET /v1/transfer/bank/list.
+ */
+export const BANK_CODE: Record<string, string> = {
+  bca: '014',
+  bni: '009',
+  bri: '002',
+  mandiri: '008',
+  bsm: '451',
+  kesejahteraan_ekonomi: '535',
+  artos: '542',
+};
+
 export const Role = {
   USER: 'USER',
   ADMIN: 'ADMIN',
