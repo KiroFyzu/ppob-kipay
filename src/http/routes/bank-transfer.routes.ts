@@ -92,3 +92,14 @@ bankTransferRouter.get(
     ok(res, btService.toPublicBankTransfer(bt));
   }),
 );
+
+/** Tombol "Coba lagi" untuk transfer bank yang nyangkut di PROCESSING. */
+bankTransferRouter.post(
+  '/:ref/retry',
+  createLimiter,
+  asyncHandler(async (req, res) => {
+    const user = requireUser(req);
+    const bt = await btService.retryBankTransfer(user.id, String(req.params['ref']));
+    ok(res, btService.toPublicBankTransfer(bt));
+  }),
+);

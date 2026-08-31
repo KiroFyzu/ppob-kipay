@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { env } from '../../config/env';
 import { BANK_LABEL, LedgerType, TxStatus, isTerminal } from '../../domain/enums';
-import { badRequest, notFound } from '../../lib/errors';
+import { badRequest, conflict, notFound } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { prisma } from '../../lib/prisma';
 import {
@@ -347,6 +347,63 @@ export async function refundStuckBankTransfer(bankTransferId: string, adminId: s
       },
     });
   });
+}
+
+/** Sama persis alasannya dengan retryTransaction() milik topup e-wallet. */
+const RETRY_COOLDOWN_MS = 15_000;
+
+export async function retryBankTransfer(userId: string, refIdOrId: string) {
+  const existing = await getBankTransfer(userId, refIdOrId);
+
+  if (existing.status !== TxStatus.PROCESSING) {
+    throw badRequest(
+      'NOT_PROCESSING',
+      'Hanya transfer bank berstatus "Diproses" yang bisa dicoba lagi',
+    );
+  }
+
+  const sinceLastCheck = existing.lastCheckedAt
+    ? Date.now() - existing.lastCheckedAt.getTime()
+    : RETRY_COOLDOWN_MS;
+  if (sinceLastCheck < RETRY_COOLDOWN_MS) {
+    throw conflict(
+      'RETRY_TOO_SOON',
+      `Tunggu ${Math.ceil((RETRY_COOLDOWN_MS - sinceLastCheck) / 1000)} detik lagi sebelum mencoba lagi`,
+    );
+  }
+
+  try {
+    const status = await supplier.checkStatus(existing.refId);
+    return await applySupplierResult(existing.id, status, 'order');
+  } catch (err) {
+    if (!(err instanceof SupplierUnavailableError)) throw err;
+    logger.warn(
+      { refId: existing.refId, reason: err.message },
+      'Cek status gagal saat retry manual pengguna, mencoba kirim ulang transfer bank',
+    );
+  }
+
+  try {
+    const result = await supplier.transferBank({
+      refId: existing.refId,
+      bankCode: existing.bankCode,
+      accountNumber: existing.targetNumber,
+      nominal: existing.nominal,
+    });
+    return await applySupplierResult(existing.id, result, 'order');
+  } catch (err) {
+    if (err instanceof SupplierUnavailableError) {
+      await prisma.bankTransfer.update({
+        where: { id: existing.id },
+        data: { lastCheckedAt: new Date() },
+      });
+      throw badRequest(
+        'SUPPLIER_UNAVAILABLE',
+        'Supplier masih belum bisa dihubungi, coba lagi beberapa saat lagi',
+      );
+    }
+    throw err;
+  }
 }
 
 export async function getBankTransfer(userId: string, refIdOrId: string) {

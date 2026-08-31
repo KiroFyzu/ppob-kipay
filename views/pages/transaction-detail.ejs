@@ -19,6 +19,16 @@
     <% } else if (tx.status === 'REFUNDED') { %>
       <p class="receipt-note">Transaksi gagal dan saldomu sudah dikembalikan penuh.</p>
     <% } %>
+
+    <% if (tx.status === 'PROCESSING') { %>
+      <% if (typeof retryError !== 'undefined' && retryError) { %>
+        <div class="alert alert-error" role="alert"><%= retryError %></div>
+      <% } %>
+      <form method="post" action="/transaksi/<%= tx.refId %>/coba-lagi" class="inline-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn btn-ghost btn-sm">Coba lagi</button>
+      </form>
+    <% } %>
   </div>
 
   <dl class="receipt-list">

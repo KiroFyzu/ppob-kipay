@@ -117,3 +117,14 @@ transactionRouter.get(
     ok(res, txService.toPublicTransaction(tx));
   }),
 );
+
+/** Tombol "Coba lagi" untuk transaksi yang nyangkut di PROCESSING. */
+transactionRouter.post(
+  '/:ref/retry',
+  createLimiter,
+  asyncHandler(async (req, res) => {
+    const user = requireUser(req);
+    const tx = await txService.retryTransaction(user.id, String(req.params['ref']));
+    ok(res, txService.toPublicTransaction(tx));
+  }),
+);

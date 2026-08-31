@@ -397,6 +397,70 @@ export async function refundStuckTransaction(transactionId: string, adminId: str
   });
 }
 
+/** Jeda minimum antar klik "Coba Lagi" pengguna, supaya tidak membanjiri supplier. */
+const RETRY_COOLDOWN_MS = 15_000;
+
+/**
+ * Dipanggil pengguna sendiri lewat tombol "Coba lagi" saat transaksinya
+ * nyangkut di PROCESSING. Coba cek status dulu (siapa tahu ternyata sudah
+ * final tapi belum sempat dibaca worker) -- kalau supplier balas "tidak
+ * ditemukan" atau memang tidak bisa dihubungi, kirim ulang order dengan refId
+ * yang sama. Aman diulang karena refId dipakai supplier sebagai kunci
+ * idempotensi, jadi tidak akan tercatat dua kali di sisi mereka.
+ */
+export async function retryTransaction(userId: string, refIdOrId: string) {
+  const existing = await getTransaction(userId, refIdOrId);
+
+  if (existing.status !== TxStatus.PROCESSING) {
+    throw badRequest(
+      'NOT_PROCESSING',
+      'Hanya transaksi berstatus "Diproses" yang bisa dicoba lagi',
+    );
+  }
+
+  const sinceLastCheck = existing.lastCheckedAt
+    ? Date.now() - existing.lastCheckedAt.getTime()
+    : RETRY_COOLDOWN_MS;
+  if (sinceLastCheck < RETRY_COOLDOWN_MS) {
+    throw conflict(
+      'RETRY_TOO_SOON',
+      `Tunggu ${Math.ceil((RETRY_COOLDOWN_MS - sinceLastCheck) / 1000)} detik lagi sebelum mencoba lagi`,
+    );
+  }
+
+  try {
+    const status = await supplier.checkStatus(existing.refId);
+    return await applySupplierResult(existing.id, status, 'order');
+  } catch (err) {
+    if (!(err instanceof SupplierUnavailableError)) throw err;
+    logger.warn(
+      { refId: existing.refId, reason: err.message },
+      'Cek status gagal saat retry manual pengguna, mencoba kirim ulang order',
+    );
+  }
+
+  try {
+    const result = await supplier.order({
+      refId: existing.refId,
+      kodeProduk: existing.kodeProduk,
+      targetNumber: existing.targetNumber,
+    });
+    return await applySupplierResult(existing.id, result, 'order');
+  } catch (err) {
+    if (err instanceof SupplierUnavailableError) {
+      await prisma.transaction.update({
+        where: { id: existing.id },
+        data: { lastCheckedAt: new Date() },
+      });
+      throw badRequest(
+        'SUPPLIER_UNAVAILABLE',
+        'Supplier masih belum bisa dihubungi, coba lagi beberapa saat lagi',
+      );
+    }
+    throw err;
+  }
+}
+
 export async function getTransaction(userId: string, refIdOrId: string) {
   const tx = await prisma.transaction.findFirst({
     where: {

@@ -327,11 +327,57 @@ webRouter.get('/transaksi/:ref', requireWebLogin, async (req, res, next) => {
       // Halaman menyegarkan diri sendiri selama status belum final, memakai
       // meta refresh supaya tetap bekerja tanpa JavaScript.
       autoRefresh: tx.status === TxStatus.PENDING || tx.status === TxStatus.PROCESSING,
+      retryError: null,
     });
   } catch (err) {
     next(err);
   }
 });
+
+/**
+ * Tombol "Coba lagi" di halaman detail. Kalau gagal (mis. supplier masih
+ * belum bisa dihubungi, atau kena cooldown), render ulang halaman yang sama
+ * dengan pesan error alih-alih melempar ke halaman error generik -- transaksi
+ * yang gagal di-retry bukan kegagalan sistem, cuma belum waktunya.
+ */
+webRouter.post(
+  '/transaksi/:ref/coba-lagi',
+  requireWebLogin,
+  verifyCsrf,
+  async (req, res, next) => {
+    const user = req.webUser!;
+    const ref = String(req.params['ref']);
+    try {
+      let tx;
+      try {
+        tx = txService.toPublicTransaction(await txService.retryTransaction(user.id, ref));
+      } catch (err) {
+        if (!(err instanceof AppError) || err.statusCode !== 404) throw err;
+        tx = bankTransferService.toPublicBankTransfer(
+          await bankTransferService.retryBankTransfer(user.id, ref),
+        );
+      }
+      res.redirect(`/transaksi/${tx.refId}`);
+    } catch (err) {
+      const message = toFormError(err);
+      if (!message) {
+        next(err);
+        return;
+      }
+      try {
+        const tx = await getCombinedTransaction(user.id, ref);
+        res.status(409).render('pages/transaction-detail', {
+          title: `Transaksi ${tx.refId}`,
+          tx,
+          autoRefresh: tx.status === TxStatus.PENDING || tx.status === TxStatus.PROCESSING,
+          retryError: message,
+        });
+      } catch (innerErr) {
+        next(innerErr);
+      }
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Transfer Bank (TokoVoucher)
