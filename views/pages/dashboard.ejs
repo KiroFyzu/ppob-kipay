@@ -6,25 +6,37 @@
 </section>
 
 <div class="stat-grid">
-  <div class="card stat">
+  <div class="card stat stat-featured">
+    <span class="stat-icon primary" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><circle cx="16.5" cy="12" r=".75" fill="currentColor" stroke="none"/></svg>
+    </span>
     <span class="stat-label">Saldo tersedia</span>
     <span class="stat-value"><%= rupiah(user.balance) %></span>
     <a class="stat-action" href="/saldo">Isi saldo &rarr;</a>
   </div>
   <div class="card stat">
+    <span class="stat-icon neutral" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    </span>
     <span class="stat-label">Total transaksi</span>
     <span class="stat-value"><%= totalTransactions %></span>
     <a class="stat-action" href="/transaksi">Lihat riwayat &rarr;</a>
   </div>
   <div class="card stat">
+    <span class="stat-icon success" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/></svg>
+    </span>
     <span class="stat-label">Berhasil</span>
     <span class="stat-value success"><%= summary.SUCCESS || 0 %></span>
     <span class="stat-action muted">Sudah masuk ke tujuan</span>
   </div>
   <div class="card stat">
-    <span class="stat-label">Sedang diproses</span>
-    <span class="stat-value pending"><%= (summary.PENDING || 0) + (summary.PROCESSING || 0) %></span>
-    <span class="stat-action muted">Menunggu konfirmasi</span>
+    <span class="stat-icon refund" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+    </span>
+    <span class="stat-label">Total dikeluarkan</span>
+    <span class="stat-value"><%= rupiah(totalSpent) %></span>
+    <span class="stat-action muted">Dari transaksi yang berhasil</span>
   </div>
 </div>
 

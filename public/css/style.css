@@ -292,6 +292,16 @@ main { padding: 2rem 1.25rem 3.5rem; min-height: 65vh; }
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 .stat { display: flex; flex-direction: column; gap: .2rem; }
+.stat-featured { border-color: var(--primary); background: var(--primary-soft); }
+.stat-icon {
+  width: 34px; height: 34px; margin-bottom: .35rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-muted);
+}
+.stat-icon svg { width: 18px; height: 18px; }
+.stat-icon.primary { background: var(--surface); color: var(--primary); }
+.stat-icon.success { background: var(--success-soft); color: var(--success); }
+.stat-icon.refund { background: var(--refund-soft); color: var(--refund); }
 .stat-label {
   font-size: .74rem; color: var(--text-muted);
   text-transform: uppercase; letter-spacing: .05em; font-weight: 600;

@@ -124,6 +124,7 @@ export const BANK_CODE: Record<string, string> = {
   bsm: '451',
   kesejahteraan_ekonomi: '535',
   artos: '542',
+  
 };
 
 export const Role = {

@@ -564,7 +564,7 @@ webRouter.get('/dasbor', requireWebLogin, async (req, res, next) => {
   try {
     const user = req.webUser!;
 
-    const [recent, txCounts, btCounts] = await Promise.all([
+    const [recent, txCounts, btCounts, txSpent, btSpent] = await Promise.all([
       listCombinedHistory(user.id, { limit: 5 }),
       prisma.transaction.groupBy({
         by: ['status'],
@@ -576,6 +576,14 @@ webRouter.get('/dasbor', requireWebLogin, async (req, res, next) => {
         where: { userId: user.id },
         _count: { _all: true },
       }),
+      prisma.transaction.aggregate({
+        where: { userId: user.id, status: TxStatus.SUCCESS },
+        _sum: { sellPrice: true },
+      }),
+      prisma.bankTransfer.aggregate({
+        where: { userId: user.id, status: TxStatus.SUCCESS },
+        _sum: { sellPrice: true },
+      }),
     ]);
 
     const summary: Record<string, number> = {};
@@ -583,11 +591,14 @@ webRouter.get('/dasbor', requireWebLogin, async (req, res, next) => {
       summary[row.status] = (summary[row.status] ?? 0) + row._count._all;
     }
 
+    const totalSpent = (txSpent._sum.sellPrice ?? 0) + (btSpent._sum.sellPrice ?? 0);
+
     res.render('pages/dashboard', {
       title: 'Dasbor',
       recent,
       summary,
       totalTransactions: Object.values(summary).reduce((sum, n) => sum + n, 0),
+      totalSpent,
     });
   } catch (err) {
     next(err);
